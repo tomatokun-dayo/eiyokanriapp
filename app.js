@@ -694,7 +694,7 @@ function renderTotals(totals, entries) {
       <div class="nutrient-row">
         <div class="nutrient-topline">
           <span class="nutrient-name">${nutrient.label}</span>
-          <span class="nutrient-value">${formatValue(value, nutrient)} / 仮${formatValue(target, nutrient)}</span>
+          <span class="nutrient-value">${formatValue(value, nutrient)} / 目安${formatValue(target, nutrient)}</span>
         </div>
         <div
           class="progress-track"
@@ -712,14 +712,14 @@ function renderTotals(totals, entries) {
 
   if (entries.length === 0) {
     elements.mainBalance.textContent = "まだ記録がありません";
-    elements.subBalance.textContent = `${ageTarget.label}（${ageTarget.note}）の仮ラインを表示中。食材を追加すると合計が更新されます。`;
+    elements.subBalance.textContent = `${ageTarget.label}（${ageTarget.note}）が離乳食から取りたい分の目安を表示中。食材を追加すると合計が更新されます。`;
     return;
   }
 
   const protein = totals.protein;
   const energy = totals.energy;
   elements.mainBalance.textContent = `${entries.length}品を集計中`;
-  elements.subBalance.textContent = `${ageTarget.label}（${ageTarget.note}）の仮ラインで表示中。エネルギー ${formatValue(energy, nutrientByKey.get("energy"))}、たんぱく質 ${formatValue(protein, nutrientByKey.get("protein"))}。`;
+  elements.subBalance.textContent = `${ageTarget.label}（${ageTarget.note}）の離乳食からの目安と比較中。エネルギー ${formatValue(energy, nutrientByKey.get("energy"))}、たんぱく質 ${formatValue(protein, nutrientByKey.get("protein"))}。`;
 }
 
 function formatValue(value, nutrient) {
@@ -1006,7 +1006,7 @@ function renderTrendCharts(data) {
             <span class="trend-name" style="--trend-color: ${nutrient.color}">${nutrient.label}</span>
             <span class="trend-values">
               <strong>${formatValue(todayValue, nutrient)}</strong>
-              <small>仮${formatValue(target, nutrient)}</small>
+              <small>目安${formatValue(target, nutrient)}</small>
             </span>
           </div>
           <canvas
@@ -1127,7 +1127,7 @@ function drawGrid(ctx, chart, cssWidth, nutrient, maxValue, target) {
   ctx.fillStyle = "#b65d43";
   ctx.font = "11px system-ui, sans-serif";
   ctx.textAlign = "left";
-  ctx.fillText("仮ライン", chart.left + 5, Math.max(chart.top + 12, targetY - 6));
+  ctx.fillText("目安ライン", chart.left + 5, Math.max(chart.top + 12, targetY - 6));
 }
 
 function formatShortDate(dateKey) {

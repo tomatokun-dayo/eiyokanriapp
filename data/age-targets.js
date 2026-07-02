@@ -1,21 +1,66 @@
-// Placeholder/provisional values; keep in sync with future age-band nutrition target sources.
+// 月齢別の1日あたり「離乳食から取りたい」目安ライン。
+//
+// 定義: 母乳・ミルクを除き、離乳食から取りたい分の目安（1日の総摂取目安ではない）。
+//
+// 導出方法:
+//   「日本人の食事摂取基準(2020年版)」の乳幼児の値（男女差があるものは中間値）
+//   × 離乳食からのエネルギー割合の目安（厚生労働省「授乳・離乳の支援ガイド」2019年改定版の記述に基づく近似）
+//     5-6か月: 約15% / 7-8か月: 約35% / 9-11か月: 約65% / 12-18か月: 約85%
+//
+// 注意:
+// - 栄養素ごとに一律の割合を掛けた近似であり、医学的・栄養学的な指導値ではない（家庭内の目安）。
+// - 鉄は6か月頃から体内貯蔵が減り食事からの摂取が重要になるため、割合近似より重めに設定。
+// - 5-6か月の鉄は総目安(0.5mg)をそのまま採用（開始期の意識づけ。貯蔵鉄があるため参考程度）。
+// - 炭水化物は基準値がないため「エネルギー − たんぱく質×4 − 脂質×9」から推計。
+// - 脂質は脂質エネルギー比（乳児40%・1歳以降25%）から推計。
+// - ※要検証: 最終値は上記出典と突き合わせて確認すること（referencedAt が空のものは未照合）。
 window.AGE_TARGETS = [
   {
     id: "5-6",
     label: "5-6か月",
     note: "離乳初期",
-    targets: { energy: 360, protein: 10, fat: 14, carbs: 50, iron: 3.5, calcium: 200 },
+    targets: { energy: 90, protein: 1.5, fat: 4, carbs: 12, iron: 0.5, calcium: 30 },
+    source: {
+      basis: "食事摂取基準2020: エネルギー約600kcal・たんぱく質10g(目安)・鉄0.5mg(目安)・カルシウム約210mg(目安)",
+      foodRatio: 0.15,
+      referencedAt: "",
+      note: "要検証。鉄のみ割合を掛けず総目安を採用",
+    },
   },
   {
     id: "7-8",
     label: "7-8か月",
     note: "離乳中期",
-    targets: { energy: 450, protein: 15, fat: 18, carbs: 65, iron: 5, calcium: 250 },
+    targets: { energy: 220, protein: 5, fat: 10, carbs: 28, iron: 1.8, calcium: 90 },
+    source: {
+      basis: "食事摂取基準2020: エネルギー625kcal(男650/女600)・たんぱく質15g(目安)・鉄5.0mg(推奨)・カルシウム250mg(目安)",
+      foodRatio: 0.35,
+      referencedAt: "",
+      note: "要検証",
+    },
   },
   {
     id: "9-11",
     label: "9-11か月",
     note: "離乳後期",
-    targets: { energy: 520, protein: 18, fat: 22, carbs: 78, iron: 6, calcium: 300 },
+    targets: { energy: 440, protein: 16, fat: 20, carbs: 49, iron: 3.5, calcium: 160 },
+    source: {
+      basis: "食事摂取基準2020: エネルギー675kcal(男700/女650)・たんぱく質25g(目安)・鉄5.0mg(推奨)・カルシウム250mg(目安)",
+      foodRatio: 0.65,
+      referencedAt: "",
+      note: "要検証。鉄は貯蔵鉄枯渇期のためやや重めに設定",
+    },
+  },
+  {
+    id: "12-18",
+    label: "12-18か月",
+    note: "離乳完了期",
+    targets: { energy: 790, protein: 17, fat: 22, carbs: 130, iron: 4, calcium: 360 },
+    source: {
+      basis: "食事摂取基準2020(1-2歳): エネルギー925kcal(男950/女900)・たんぱく質20g(推奨)・鉄4.5mg(推奨)・カルシウム425mg(男450/女400・推奨)",
+      foodRatio: 0.85,
+      referencedAt: "",
+      note: "要検証",
+    },
   },
 ];
