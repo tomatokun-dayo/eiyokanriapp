@@ -1,0 +1,1086 @@
+const NUTRIENTS = [
+  { key: "energy", label: "エネルギー", unit: "kcal", target: 450, color: "#da6f50", decimals: 0 },
+  { key: "protein", label: "たんぱく質", unit: "g", target: 15, color: "#24786a", decimals: 1 },
+  { key: "fat", label: "脂質", unit: "g", target: 18, color: "#d99f32", decimals: 1 },
+  { key: "carbs", label: "炭水化物", unit: "g", target: 65, color: "#657fb4", decimals: 1 },
+  { key: "iron", label: "鉄", unit: "mg", target: 5, color: "#8b6ba8", decimals: 1 },
+  { key: "calcium", label: "カルシウム", unit: "mg", target: 250, color: "#7e9b51", decimals: 0 },
+];
+
+const MEALS = [
+  { id: "morning", label: "朝" },
+  { id: "lunch", label: "昼" },
+  { id: "dinner", label: "夜" },
+  { id: "snack", label: "間食" },
+];
+
+const INITIAL_BATCH_ROW_COUNT = 3;
+const MIN_BATCH_ROW_COUNT = 1;
+const ENTRY_STORAGE_KEY = "eiyokanri.entries.v1";
+
+const AMOUNT_UNITS = [
+  { key: "g", label: "g", grams: 1, min: "1", step: "1", max: "200" },
+  { key: "tsp", label: "小さじ", grams: 5, min: "0.5", step: "0.5", max: "20" },
+  { key: "tbsp", label: "大さじ", grams: 15, min: "0.5", step: "0.5", max: "10" },
+];
+
+const unitByKey = new Map(AMOUNT_UNITS.map((unit) => [unit.key, unit]));
+const foodById = new Map(FOOD_MASTER.map((food) => [food.id, food]));
+const nutrientByKey = new Map(NUTRIENTS.map((nutrient) => [nutrient.key, nutrient]));
+const ageTargetById = new Map(AGE_TARGETS.map((target) => [target.id, target]));
+
+const FOOD_STATES = [
+  { key: "not_introduced", label: "未導入", color: "#9aa49c" },
+  { key: "introduced", label: "導入済み", color: "#24786a" },
+  { key: "caution", label: "注意中", color: "#d99f32" },
+  { key: "avoid", label: "避ける", color: "#da6f50" },
+];
+const foodStateByKey = new Map(FOOD_STATES.map((state) => [state.key, state]));
+const FOOD_STATE_STORAGE_KEY = "eiyokanri.foodStates.v1";
+const foodStateOverrides = loadStoredFoodStates();
+
+const elements = {
+  todayLabel: document.querySelector("#today-label"),
+  ageStage: document.querySelector("#age-stage"),
+  form: document.querySelector("#entry-form"),
+  batchRows: document.querySelector("#batch-rows"),
+  addBatchRow: document.querySelector("#add-batch-row"),
+  mealOptions: document.querySelector("#meal-options"),
+  quickPicks: document.querySelector("#quick-picks"),
+  totalsList: document.querySelector("#totals-list"),
+  suggestions: document.querySelector("#suggestions"),
+  entryCount: document.querySelector("#entry-count"),
+  mainBalance: document.querySelector("#main-balance"),
+  subBalance: document.querySelector("#sub-balance"),
+  chartNutrients: document.querySelector("#chart-nutrients"),
+  trendGrid: document.querySelector("#trend-grid"),
+  plateCanvas: document.querySelector("#plate-canvas"),
+  logList: document.querySelector("#log-list"),
+  masterList: document.querySelector("#master-list"),
+  categoryFilter: document.querySelector("#category-filter"),
+  resetButton: document.querySelector("#reset-button"),
+};
+
+const todayKey = toDateKey(new Date());
+
+const memoryStore = createMemoryStore();
+let selectedChartNutrients = new Set(["energy", "protein", "iron", "calcium"]);
+let selectedAgeTargetId = "7-8";
+let activeBatchRowIndex = null;
+
+function createMemoryStore() {
+  let entries = loadStoredEntries();
+
+  function persistEntries() {
+    try {
+      window.localStorage.setItem(ENTRY_STORAGE_KEY, JSON.stringify(entries));
+    } catch (error) {
+      // Keep the in-memory store usable when localStorage is blocked or full.
+    }
+  }
+
+  return {
+    getEntries() {
+      return [...entries];
+    },
+    getAllEntries() {
+      return [...entries];
+    },
+    getTodayEntries() {
+      return entries.filter((entry) => entry.date === todayKey);
+    },
+    addEntry(entry) {
+      entries = [entry, ...entries];
+      persistEntries();
+    },
+    addEntries(newEntries) {
+      entries = [...newEntries, ...entries];
+      persistEntries();
+    },
+    removeEntry(id) {
+      entries = entries.filter((entry) => entry.id !== id);
+      persistEntries();
+    },
+    resetToday() {
+      entries = entries.filter((entry) => entry.date !== todayKey);
+      persistEntries();
+    },
+  };
+}
+
+function loadStoredEntries() {
+  try {
+    const storedEntries = window.localStorage.getItem(ENTRY_STORAGE_KEY);
+    if (!storedEntries) return [];
+
+    const parsedEntries = JSON.parse(storedEntries);
+    return Array.isArray(parsedEntries) ? parsedEntries : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function createEntry({ foodId, amount, meal, inputAmount = amount, inputUnit = "g", createdAt = new Date() }) {
+  return {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    foodId,
+    amount,
+    inputAmount,
+    inputUnit,
+    meal,
+    date: todayKey,
+    createdAt: createdAt.toISOString(),
+  };
+}
+
+function toDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date, amount) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + amount);
+  return next;
+}
+
+function init() {
+  applyStoredFoodStates();
+
+  elements.todayLabel.textContent = new Intl.DateTimeFormat("ja-JP", {
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+  }).format(new Date());
+
+  renderFormOptions();
+  renderCategoryFilter();
+  bindEvents();
+  render();
+}
+
+function renderFormOptions() {
+  elements.ageStage.innerHTML = AGE_TARGETS.map(
+    (target) => `<option value="${target.id}" ${target.id === selectedAgeTargetId ? "selected" : ""}>${target.label}</option>`,
+  ).join("");
+
+  elements.mealOptions.innerHTML = MEALS.map(
+    (meal, index) => `
+      <label>
+        <input type="radio" name="meal" value="${meal.id}" ${index === 0 ? "checked" : ""} />
+        <span>${meal.label}</span>
+      </label>
+    `,
+  ).join("");
+
+  elements.chartNutrients.innerHTML = NUTRIENTS.map(
+    (nutrient) => `
+      <label class="nutrient-toggle" style="--toggle-color: ${nutrient.color}">
+        <input
+          type="checkbox"
+          value="${nutrient.key}"
+          ${selectedChartNutrients.has(nutrient.key) ? "checked" : ""}
+        />
+        <span>${nutrient.label}</span>
+      </label>
+    `,
+  ).join("");
+
+  renderBatchRows(INITIAL_BATCH_ROW_COUNT);
+}
+
+function renderBatchRow(row, index) {
+  const selectedFood = foodById.get(row.foodId);
+  const defaultAmount = selectedFood?.defaultAmount ?? "";
+  const options = [
+    `<option value="">未選択</option>`,
+    ...FOOD_MASTER.map(
+      (food) => `<option value="${food.id}" ${food.id === row.foodId ? "selected" : ""}>${food.name}</option>`,
+    ),
+  ].join("");
+
+  return `
+    <div class="batch-row" data-batch-row="${index}">
+      <span class="batch-index">${row.label}</span>
+      <label class="batch-field batch-food-field">
+        <span>食材</span>
+        <select class="batch-food-select" name="food-${index}">
+          ${options}
+        </select>
+      </label>
+      <label class="batch-field batch-amount-field">
+        <span>量</span>
+        <span class="batch-amount-control">
+          <input
+            class="batch-amount-input"
+            name="amount-${index}"
+            type="number"
+            min="${AMOUNT_UNITS[0].min}"
+            max="${AMOUNT_UNITS[0].max}"
+            step="${AMOUNT_UNITS[0].step}"
+            value="${defaultAmount}"
+          />
+          <select class="batch-unit-select" name="unit-${index}" aria-label="${row.label}の単位" data-current-unit="g">
+            ${AMOUNT_UNITS.map((unit) => `<option value="${unit.key}">${unit.label}</option>`).join("")}
+          </select>
+        </span>
+      </label>
+      <button class="batch-remove-button" type="button" data-remove-batch-row aria-label="${row.label}を削除">×</button>
+    </div>
+  `;
+}
+
+function getBatchRowLabel(index) {
+  return `${index + 1}品目`;
+}
+
+function getBatchRowElements() {
+  return [...elements.batchRows.querySelectorAll("[data-batch-row]")];
+}
+
+function renderBatchRows(rowCount) {
+  activeBatchRowIndex = null;
+  elements.batchRows.innerHTML = Array.from({ length: rowCount }, (_, index) =>
+    renderBatchRow({ label: getBatchRowLabel(index) }, index),
+  ).join("");
+  updateBatchRowRemoveButtons();
+}
+
+function appendBatchRow() {
+  const activeRow = getActiveBatchRow();
+  const index = getBatchRowElements().length;
+  elements.batchRows.insertAdjacentHTML("beforeend", renderBatchRow({ label: getBatchRowLabel(index) }, index));
+  renumberBatchRows(activeRow);
+}
+
+function removeBatchRow(row) {
+  const rows = getBatchRowElements();
+  if (!row || rows.length <= MIN_BATCH_ROW_COUNT) return;
+
+  const activeRow = getActiveBatchRow();
+  row.remove();
+  renumberBatchRows(activeRow === row ? null : activeRow);
+}
+
+function getActiveBatchRow() {
+  if (activeBatchRowIndex === null) return null;
+  return getBatchRowElements().find((row) => Number(row.dataset.batchRow) === activeBatchRowIndex) ?? null;
+}
+
+function renumberBatchRows(activeRow = getActiveBatchRow()) {
+  const rows = getBatchRowElements();
+  rows.forEach((row, index) => {
+    const label = getBatchRowLabel(index);
+    row.dataset.batchRow = String(index);
+    row.querySelector(".batch-index").textContent = label;
+    row.querySelector(".batch-food-select").name = `food-${index}`;
+    row.querySelector(".batch-amount-input").name = `amount-${index}`;
+
+    const unitSelect = row.querySelector(".batch-unit-select");
+    unitSelect.name = `unit-${index}`;
+    unitSelect.setAttribute("aria-label", `${label}の単位`);
+
+    const removeButton = row.querySelector("[data-remove-batch-row]");
+    removeButton.setAttribute("aria-label", `${label}を削除`);
+  });
+
+  updateBatchRowRemoveButtons(rows);
+  activeBatchRowIndex = activeRow && elements.batchRows.contains(activeRow) ? Number(activeRow.dataset.batchRow) : null;
+}
+
+function updateBatchRowRemoveButtons(rows = getBatchRowElements()) {
+  const shouldDisable = rows.length <= MIN_BATCH_ROW_COUNT;
+  rows.forEach((row) => {
+    const removeButton = row.querySelector("[data-remove-batch-row]");
+    removeButton.disabled = shouldDisable;
+  });
+}
+
+function renderCategoryFilter() {
+  const categories = [...new Set(FOOD_MASTER.map((food) => food.category))];
+  elements.categoryFilter.innerHTML += categories
+    .map((category) => `<option value="${category}">${category}</option>`)
+    .join("");
+}
+
+function bindEvents() {
+  elements.ageStage.addEventListener("change", () => {
+    selectedAgeTargetId = elements.ageStage.value;
+    render();
+  });
+
+  elements.form.addEventListener("submit", (event) => {
+    event.preventDefault();
+
+    const meal = new FormData(elements.form).get("meal") || "morning";
+    const rows = getBatchEntries();
+
+    if (rows.length === 0) {
+      return;
+    }
+
+    const createdAt = new Date();
+    const entries = rows.map((row, index) => {
+      const rowTime = new Date(createdAt.getTime() + index * 1000);
+      return createEntry({
+        foodId: row.foodId,
+        amount: row.grams,
+        inputAmount: row.amount,
+        inputUnit: row.unit,
+        meal,
+        createdAt: rowTime,
+      });
+    });
+
+    memoryStore.addEntries(entries);
+    clearBatchRows();
+    render();
+  });
+
+  elements.addBatchRow.addEventListener("click", appendBatchRow);
+
+  elements.batchRows.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-remove-batch-row]");
+    if (!button) return;
+    removeBatchRow(button.closest("[data-batch-row]"));
+  });
+
+  elements.batchRows.addEventListener("change", (event) => {
+    const select = event.target.closest(".batch-food-select");
+    const unitSelect = event.target.closest(".batch-unit-select");
+    if (!select && !unitSelect) return;
+
+    const row = event.target.closest("[data-batch-row]");
+    const input = row?.querySelector(".batch-amount-input");
+    const foodSelect = row?.querySelector(".batch-food-select");
+    const food = foodById.get(foodSelect?.value);
+
+    if (unitSelect) {
+      convertAmountInputUnit(row, unitSelect);
+      updateAmountInputForUnit(row);
+      return;
+    }
+
+    if (food) {
+      input.value = food.defaultAmount;
+      const unitSelectForRow = row.querySelector(".batch-unit-select");
+      unitSelectForRow.value = "g";
+      unitSelectForRow.dataset.currentUnit = "g";
+      updateAmountInputForUnit(row);
+    } else if (input) {
+      input.value = "";
+    }
+  });
+
+  elements.batchRows.addEventListener("focusin", (event) => {
+    const row = event.target.closest("[data-batch-row]");
+    if (!row) return;
+    activeBatchRowIndex = Number(row.dataset.batchRow);
+  });
+
+  elements.chartNutrients.addEventListener("change", (event) => {
+    const input = event.target.closest("input[type='checkbox']");
+    if (!input) return;
+
+    if (input.checked) {
+      selectedChartNutrients.add(input.value);
+    } else {
+      selectedChartNutrients.delete(input.value);
+    }
+
+    renderTrendCharts(buildTrendData(memoryStore.getAllEntries()));
+  });
+
+  elements.categoryFilter.addEventListener("change", renderMasterList);
+
+  elements.resetButton.addEventListener("click", () => {
+    memoryStore.resetToday();
+    render();
+  });
+
+  elements.logList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-remove-entry]");
+    if (!button) return;
+    memoryStore.removeEntry(button.dataset.removeEntry);
+    render();
+  });
+
+  window.addEventListener("resize", () => {
+    renderTrendCharts(buildTrendData(memoryStore.getAllEntries()));
+    renderPlate(memoryStore.getTodayEntries());
+  });
+}
+
+function getBatchEntries() {
+  return [...elements.batchRows.querySelectorAll("[data-batch-row]")]
+    .map((row) => {
+      const foodId = row.querySelector(".batch-food-select")?.value;
+      const amount = Number(row.querySelector(".batch-amount-input")?.value);
+      const unit = row.querySelector(".batch-unit-select")?.value || "g";
+      const grams = amountToGrams(amount, unit);
+
+      return { foodId, amount, unit, grams };
+    })
+    .filter((row) => foodById.has(row.foodId) && Number.isFinite(row.grams) && row.grams > 0);
+}
+
+function clearBatchRows() {
+  renderBatchRows(INITIAL_BATCH_ROW_COUNT);
+}
+
+function amountToGrams(amount, unitKey) {
+  const unit = unitByKey.get(unitKey) ?? unitByKey.get("g");
+  return amount * unit.grams;
+}
+
+function convertAmountInputUnit(row, unitSelect) {
+  const input = row?.querySelector(".batch-amount-input");
+  const previousUnit = unitSelect.dataset.currentUnit || "g";
+  const nextUnit = unitSelect.value || "g";
+  const amount = Number(input?.value);
+
+  if (input && Number.isFinite(amount) && amount > 0 && previousUnit !== nextUnit) {
+    const grams = amountToGrams(amount, previousUnit);
+    const nextUnitInfo = unitByKey.get(nextUnit) ?? unitByKey.get("g");
+    input.value = formatPlainNumber(grams / nextUnitInfo.grams);
+  }
+
+  unitSelect.dataset.currentUnit = nextUnit;
+}
+
+function formatEntryAmount(entry) {
+  const unit = unitByKey.get(entry.inputUnit || "g") ?? unitByKey.get("g");
+  const inputAmount = entry.inputAmount ?? entry.amount;
+
+  if (unit.key === "g") {
+    return `${formatPlainNumber(inputAmount)}g`;
+  }
+
+  return `${unit.label}${formatPlainNumber(inputAmount)}（約${formatPlainNumber(entry.amount)}g）`;
+}
+
+function formatPlainNumber(value) {
+  return Number(value || 0)
+    .toFixed(1)
+    .replace(/\.0$/, "");
+}
+
+function updateAmountInputForUnit(row) {
+  const input = row?.querySelector(".batch-amount-input");
+  const unitSelect = row?.querySelector(".batch-unit-select");
+  const unit = unitByKey.get(unitSelect?.value || "g") ?? unitByKey.get("g");
+  if (!input) return;
+
+  input.step = unit.step;
+  input.min = unit.min;
+  input.max = unit.max;
+}
+
+function fillNextBatchRow(food) {
+  const rows = [...elements.batchRows.querySelectorAll("[data-batch-row]")];
+  const emptyRow = rows.find((row) => !row.querySelector(".batch-food-select")?.value);
+  const activeRow = rows.find((row) => Number(row.dataset.batchRow) === activeBatchRowIndex);
+  const activeRowIsEmpty = activeRow && !activeRow.querySelector(".batch-food-select")?.value;
+  const targetRow = activeRowIsEmpty ? activeRow : emptyRow ?? activeRow ?? rows[0];
+  if (!targetRow) return;
+
+  const select = targetRow.querySelector(".batch-food-select");
+  const input = targetRow.querySelector(".batch-amount-input");
+  const unitSelect = targetRow.querySelector(".batch-unit-select");
+  select.value = food.id;
+  input.value = food.defaultAmount;
+  unitSelect.value = "g";
+  unitSelect.dataset.currentUnit = "g";
+  updateAmountInputForUnit(targetRow);
+  activeBatchRowIndex = Number(targetRow.dataset.batchRow);
+  input.focus();
+  input.select();
+}
+
+function render() {
+  const entries = memoryStore.getTodayEntries();
+  const allEntries = memoryStore.getAllEntries();
+  const totals = calculateTotals(entries);
+
+  elements.entryCount.textContent = String(entries.length);
+  renderQuickPicks();
+  renderTotals(totals, entries);
+  renderSuggestions(totals, entries);
+  renderLog(entries);
+  renderMasterList();
+  renderTrendCharts(buildTrendData(allEntries));
+  renderPlate(entries);
+}
+
+function calculateTotals(entries) {
+  const totals = Object.fromEntries(NUTRIENTS.map((nutrient) => [nutrient.key, 0]));
+
+  for (const entry of entries) {
+    const food = foodById.get(entry.foodId);
+    if (!food) continue;
+
+    for (const nutrient of NUTRIENTS) {
+      totals[nutrient.key] += (food.per100[nutrient.key] * entry.amount) / 100;
+    }
+  }
+
+  return totals;
+}
+
+function getActiveAgeTarget() {
+  return ageTargetById.get(selectedAgeTargetId) ?? ageTargetById.get("7-8");
+}
+
+function getTargetValue(nutrientKey) {
+  const ageTarget = getActiveAgeTarget();
+  return ageTarget.targets[nutrientKey] ?? nutrientByKey.get(nutrientKey)?.target ?? 0;
+}
+
+const SUGGESTION_NUTRIENT_KEYS = ["energy", "protein", "iron", "calcium"];
+const SUGGESTION_THRESHOLD = 0.7;
+const SUGGESTION_EXCLUDED_STATES = new Set(["not_introduced", "avoid"]);
+
+function buildSuggestions(totals) {
+  return SUGGESTION_NUTRIENT_KEYS.map((key) => {
+    const target = getTargetValue(key);
+    const value = totals[key] ?? 0;
+    const ratio = target > 0 ? value / target : 1;
+    return { key, ratio, target };
+  })
+    .filter((item) => item.target > 0 && item.ratio < SUGGESTION_THRESHOLD)
+    .sort((a, b) => a.ratio - b.ratio)
+    .slice(0, 3);
+}
+
+function findFoodSuggestions(nutrientKey) {
+  return FOOD_MASTER.filter(
+    (food) => !SUGGESTION_EXCLUDED_STATES.has(food.state) && (food.per100[nutrientKey] ?? 0) > 0,
+  )
+    .sort((a, b) => b.per100[nutrientKey] - a.per100[nutrientKey])
+    .slice(0, 3);
+}
+
+function createSuggestionMessage(text) {
+  const message = document.createElement("p");
+  message.className = "suggestion-empty";
+  message.textContent = text;
+  return message;
+}
+
+function renderSuggestions(totals, entries) {
+  const container = elements.suggestions;
+  if (!container) return;
+  container.replaceChildren();
+
+  if (entries.length === 0) {
+    container.appendChild(createSuggestionMessage("食材を記録すると、補うとよい栄養素を提案します。"));
+    return;
+  }
+
+  const deficits = buildSuggestions(totals);
+
+  if (deficits.length === 0) {
+    container.appendChild(createSuggestionMessage("今日は対象の栄養素がバランスよく摂れています。"));
+    return;
+  }
+
+  for (const item of deficits) {
+    const nutrient = nutrientByKey.get(item.key);
+    const percent = Math.round(item.ratio * 100);
+    const foods = findFoodSuggestions(item.key);
+
+    const row = document.createElement("div");
+    row.className = "suggestion-row";
+
+    const dot = document.createElement("span");
+    dot.className = "suggestion-dot";
+    dot.style.setProperty("--dot", nutrient.color);
+    row.appendChild(dot);
+
+    const body = document.createElement("div");
+    body.className = "suggestion-body";
+
+    const lead = document.createElement("p");
+    lead.className = "suggestion-lead";
+    lead.textContent = foods.length
+      ? `${nutrient.label}が目安の約${percent}%。次の食材を足すと近づきます。`
+      : `${nutrient.label}が目安の約${percent}%。`;
+    body.appendChild(lead);
+
+    const foodsWrap = document.createElement("div");
+    foodsWrap.className = "suggestion-foods";
+
+    if (foods.length) {
+      for (const food of foods) {
+        const tag = document.createElement("span");
+        tag.className = "suggestion-food";
+        tag.style.setProperty("--swatch", food.color);
+        tag.textContent = food.name;
+        foodsWrap.appendChild(tag);
+      }
+    } else {
+      const tag = document.createElement("span");
+      tag.className = "suggestion-food suggestion-food-empty";
+      tag.textContent = "候補食材は未導入のためなし";
+      foodsWrap.appendChild(tag);
+    }
+
+    body.appendChild(foodsWrap);
+    row.appendChild(body);
+    container.appendChild(row);
+  }
+}
+
+function renderTotals(totals, entries) {
+  const ageTarget = getActiveAgeTarget();
+
+  elements.totalsList.innerHTML = NUTRIENTS.map((nutrient) => {
+    const value = totals[nutrient.key];
+    const target = getTargetValue(nutrient.key);
+    const percentage = Math.min((value / target) * 100, 120);
+    const width = Math.min(percentage, 100);
+
+    return `
+      <div class="nutrient-row">
+        <div class="nutrient-topline">
+          <span class="nutrient-name">${nutrient.label}</span>
+          <span class="nutrient-value">${formatValue(value, nutrient)} / 仮${formatValue(target, nutrient)}</span>
+        </div>
+        <div
+          class="progress-track"
+          role="progressbar"
+          aria-label="${nutrient.label}"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="${Math.round(width)}"
+        >
+          <div class="progress-fill" style="width: ${width}%; --bar-color: ${nutrient.color}"></div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  if (entries.length === 0) {
+    elements.mainBalance.textContent = "まだ記録がありません";
+    elements.subBalance.textContent = `${ageTarget.label}（${ageTarget.note}）の仮ラインを表示中。食材を追加すると合計が更新されます。`;
+    return;
+  }
+
+  const protein = totals.protein;
+  const energy = totals.energy;
+  elements.mainBalance.textContent = `${entries.length}品を集計中`;
+  elements.subBalance.textContent = `${ageTarget.label}（${ageTarget.note}）の仮ラインで表示中。エネルギー ${formatValue(energy, nutrientByKey.get("energy"))}、たんぱく質 ${formatValue(protein, nutrientByKey.get("protein"))}。`;
+}
+
+function formatValue(value, nutrient) {
+  const decimals = nutrient?.decimals ?? 1;
+  const rounded = Number(value || 0).toFixed(decimals);
+  return `${rounded.replace(/\.0$/, "")}${nutrient?.unit ? nutrient.unit : ""}`;
+}
+
+function renderQuickPicks() {
+  elements.quickPicks.innerHTML = FOOD_MASTER.slice(0, 6)
+    .map(
+      (food) => `
+        <button class="quick-pick" type="button" data-pick-food="${food.id}">
+          <span class="swatch" style="--swatch: ${food.color}"></span>
+          <span>${food.name}</span>
+        </button>
+      `,
+    )
+    .join("");
+
+  elements.quickPicks.querySelectorAll("[data-pick-food]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const food = foodById.get(button.dataset.pickFood);
+      if (!food) return;
+      fillNextBatchRow(food);
+    });
+  });
+}
+
+function renderLog(entries) {
+  if (entries.length === 0) {
+    elements.logList.innerHTML = `<div class="empty-state">今日の記録は空です</div>`;
+    return;
+  }
+
+  elements.logList.innerHTML = entries
+    .map((entry) => {
+      const food = foodById.get(entry.foodId);
+      const meal = MEALS.find((item) => item.id === entry.meal);
+      const time = new Intl.DateTimeFormat("ja-JP", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(entry.createdAt));
+      const energy = (food.per100.energy * entry.amount) / 100;
+      const protein = (food.per100.protein * entry.amount) / 100;
+
+      return `
+        <article class="log-item">
+          <div>
+            <div class="log-title">
+              <span>${food.name}</span>
+              <span class="meal-badge">${meal?.label ?? ""}</span>
+            </div>
+            <div class="log-meta">${formatEntryAmount(entry)} / ${time} / ${formatValue(energy, nutrientByKey.get("energy"))} / ${formatValue(protein, nutrientByKey.get("protein"))}</div>
+          </div>
+          <button class="delete-button" type="button" data-remove-entry="${entry.id}">削除</button>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function loadStoredFoodStates() {
+  try {
+    const raw = window.localStorage.getItem(FOOD_STATE_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function persistFoodStates() {
+  try {
+    window.localStorage.setItem(FOOD_STATE_STORAGE_KEY, JSON.stringify(foodStateOverrides));
+  } catch (error) {
+    // Keep the in-memory states usable when localStorage is blocked or full.
+  }
+}
+
+function applyStoredFoodStates() {
+  for (const food of FOOD_MASTER) {
+    const override = foodStateOverrides[food.id];
+    if (foodStateByKey.has(override)) {
+      food.state = override;
+    }
+  }
+}
+
+function setFoodState(foodId, stateKey) {
+  const food = foodById.get(foodId);
+  if (!food || !foodStateByKey.has(stateKey)) return;
+  food.state = stateKey;
+  foodStateOverrides[foodId] = stateKey;
+  persistFoodStates();
+  render();
+}
+
+function renderMasterList() {
+  const category = elements.categoryFilter.value;
+  const foods = FOOD_MASTER.filter((food) => category === "all" || food.category === category);
+
+  elements.masterList.replaceChildren();
+
+  for (const food of foods) {
+    const stateInfo = foodStateByKey.get(food.state) ?? foodStateByKey.get("introduced");
+
+    const item = document.createElement("div");
+    item.className = "master-item";
+    item.dataset.state = food.state;
+    item.style.setProperty("--state-color", stateInfo.color);
+
+    const swatch = document.createElement("span");
+    swatch.className = "swatch";
+    swatch.style.setProperty("--swatch", food.color);
+    item.appendChild(swatch);
+
+    const main = document.createElement("div");
+    main.className = "master-main";
+
+    const addButton = document.createElement("button");
+    addButton.type = "button";
+    addButton.className = "master-add";
+    addButton.addEventListener("click", () => fillNextBatchRow(food));
+
+    const nameRow = document.createElement("span");
+    nameRow.className = "master-name";
+    const nameText = document.createElement("span");
+    nameText.textContent = food.name;
+    const categoryText = document.createElement("small");
+    categoryText.textContent = food.category;
+    nameRow.append(nameText, categoryText);
+
+    const nutrients = document.createElement("span");
+    nutrients.className = "master-nutrients";
+    nutrients.textContent = `100gあたり ${formatValue(food.per100.energy, nutrientByKey.get("energy"))} / ${formatValue(food.per100.protein, nutrientByKey.get("protein"))} / 鉄${formatValue(food.per100.iron, nutrientByKey.get("iron"))}`;
+
+    addButton.append(nameRow, nutrients);
+    main.appendChild(addButton);
+
+    const stateField = document.createElement("label");
+    stateField.className = "master-state-field";
+    const stateLabel = document.createElement("span");
+    stateLabel.className = "master-state-label";
+    stateLabel.textContent = "状態";
+    const select = document.createElement("select");
+    select.className = "master-state-select";
+    select.setAttribute("aria-label", `${food.name}の状態`);
+    for (const state of FOOD_STATES) {
+      const option = document.createElement("option");
+      option.value = state.key;
+      option.textContent = state.label;
+      if (state.key === food.state) option.selected = true;
+      select.appendChild(option);
+    }
+    select.addEventListener("change", () => setFoodState(food.id, select.value));
+    stateField.append(stateLabel, select);
+    main.appendChild(stateField);
+
+    item.appendChild(main);
+    elements.masterList.appendChild(item);
+  }
+}
+
+function buildTrendData(entries) {
+  const [year, month, day] = todayKey.split("-").map(Number);
+  const today = new Date(year, month - 1, day);
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = toDateKey(addDays(today, index - 6));
+    const entriesForDate = entries.filter((entry) => entry.date === date);
+
+    return {
+      date,
+      totals: calculateTotals(entriesForDate),
+    };
+  });
+}
+
+function renderTrendCharts(data) {
+  const selected = NUTRIENTS.filter((nutrient) => selectedChartNutrients.has(nutrient.key));
+
+  if (selected.length === 0) {
+    elements.trendGrid.innerHTML = `<div class="empty-state">表示する栄養素を選んでください</div>`;
+    return;
+  }
+
+  elements.trendGrid.innerHTML = selected
+    .map((nutrient) => {
+      const todayValue = data[data.length - 1]?.totals[nutrient.key] || 0;
+      const target = getTargetValue(nutrient.key);
+
+      return `
+        <article class="trend-card">
+          <div class="trend-card-head">
+            <span class="trend-name" style="--trend-color: ${nutrient.color}">${nutrient.label}</span>
+            <span class="trend-values">
+              <strong>${formatValue(todayValue, nutrient)}</strong>
+              <small>仮${formatValue(target, nutrient)}</small>
+            </span>
+          </div>
+          <canvas
+            class="trend-canvas"
+            data-trend="${nutrient.key}"
+            width="420"
+            height="220"
+            aria-label="${nutrient.label}の7日間推移"
+          ></canvas>
+        </article>
+      `;
+    })
+    .join("");
+
+  elements.trendGrid.querySelectorAll("[data-trend]").forEach((canvas) => {
+    renderTrendChart(canvas, data, canvas.dataset.trend);
+  });
+}
+
+function renderTrendChart(canvas, data, nutrientKey) {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const width = Math.max(240, Math.floor(rect.width * dpr));
+  const height = Math.max(160, Math.floor(rect.height * dpr));
+
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+
+  const cssWidth = width / dpr;
+  const cssHeight = height / dpr;
+  const nutrient = nutrientByKey.get(nutrientKey);
+  const values = data.map((day) => day.totals[nutrientKey] || 0);
+  const target = getTargetValue(nutrientKey);
+  const maxValue = Math.max(target, ...values) * 1.18;
+  const chart = {
+    left: 58,
+    right: 12,
+    top: 18,
+    bottom: 36,
+  };
+  chart.width = cssWidth - chart.left - chart.right;
+  chart.height = cssHeight - chart.top - chart.bottom;
+
+  ctx.clearRect(0, 0, cssWidth, cssHeight);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, cssWidth, cssHeight);
+
+  drawGrid(ctx, chart, cssWidth, nutrient, maxValue, target);
+
+  const barWidth = Math.max(12, chart.width / data.length - 12);
+  const points = data.map((day, index) => {
+    const x = chart.left + (chart.width / data.length) * index + chart.width / data.length / 2;
+    const barHeight = (values[index] / maxValue) * chart.height;
+    const y = chart.top + chart.height - barHeight;
+
+    ctx.fillStyle = day.date === todayKey ? nutrient.color : "rgba(36, 120, 106, 0.28)";
+    roundRect(ctx, x - barWidth / 2, y, barWidth, barHeight, 6);
+    ctx.fill();
+
+    const label = day.date === todayKey ? "今日" : formatShortDate(day.date);
+    ctx.fillStyle = "#68746c";
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(label, x, chart.top + chart.height + 24);
+
+    return { x, y };
+  });
+
+  ctx.beginPath();
+  points.forEach((point, index) => {
+    if (index === 0) ctx.moveTo(point.x, point.y);
+    else ctx.lineTo(point.x, point.y);
+  });
+  ctx.strokeStyle = nutrient.color;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  for (const point of points) {
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.strokeStyle = nutrient.color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+}
+
+function drawGrid(ctx, chart, cssWidth, nutrient, maxValue, target) {
+  ctx.strokeStyle = "#e2e9e3";
+  ctx.lineWidth = 1;
+  ctx.fillStyle = "#68746c";
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.textAlign = "right";
+
+  for (let index = 0; index <= 3; index += 1) {
+    const value = (maxValue / 3) * index;
+    const y = chart.top + chart.height - (value / maxValue) * chart.height;
+    ctx.beginPath();
+    ctx.moveTo(chart.left, y);
+    ctx.lineTo(cssWidth - chart.right, y);
+    ctx.stroke();
+    ctx.fillText(formatValue(value, nutrient), chart.left - 8, y + 4);
+  }
+
+  const targetY = chart.top + chart.height - (target / maxValue) * chart.height;
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = "rgba(218, 111, 80, 0.48)";
+  ctx.beginPath();
+  ctx.moveTo(chart.left, targetY);
+  ctx.lineTo(cssWidth - chart.right, targetY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = "#b65d43";
+  ctx.font = "11px system-ui, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("仮ライン", chart.left + 5, Math.max(chart.top + 12, targetY - 6));
+}
+
+function formatShortDate(dateKey) {
+  const [, month, day] = dateKey.split("-");
+  return `${Number(month)}/${Number(day)}`;
+}
+
+function renderPlate(entries) {
+  const canvas = elements.plateCanvas;
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const width = Math.max(320, Math.floor(rect.width * dpr));
+  const height = Math.max(150, Math.floor(rect.height * dpr));
+
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+
+  const cssWidth = width / dpr;
+  const cssHeight = height / dpr;
+  ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+  const gradient = ctx.createLinearGradient(0, 0, cssWidth, cssHeight);
+  gradient.addColorStop(0, "#fafdf8");
+  gradient.addColorStop(1, "#eef6f2");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, cssWidth, cssHeight);
+
+  const centerX = cssWidth * 0.52;
+  const centerY = cssHeight * 0.55;
+  const bowlWidth = cssWidth * 0.62;
+  const bowlHeight = cssHeight * 0.46;
+
+  ctx.fillStyle = "rgba(32, 39, 34, 0.08)";
+  ctx.beginPath();
+  ctx.ellipse(centerX, centerY + bowlHeight * 0.35, bowlWidth * 0.45, bowlHeight * 0.22, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeStyle = "#dce4dd";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(centerX, centerY, bowlWidth * 0.48, bowlHeight * 0.45, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  const visibleFoods = entries.slice(0, 9);
+  const radiusBase = Math.min(cssWidth, cssHeight) * 0.055;
+
+  visibleFoods.forEach((entry, index) => {
+    const food = foodById.get(entry.foodId);
+    if (!food) return;
+
+    const angle = (Math.PI * 2 * index) / Math.max(visibleFoods.length, 5);
+    const spreadX = Math.cos(angle) * bowlWidth * 0.18;
+    const spreadY = Math.sin(angle) * bowlHeight * 0.16;
+    const radius = radiusBase + Math.min(entry.amount, 70) * 0.08;
+
+    ctx.fillStyle = food.color;
+    ctx.strokeStyle = "rgba(32, 39, 34, 0.12)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(centerX + spreadX, centerY + spreadY, radius * 1.25, radius, angle * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  });
+
+  ctx.fillStyle = "#202722";
+  ctx.font = "700 14px system-ui, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("今日の器", 18, 30);
+
+  ctx.fillStyle = "#68746c";
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.fillText(entries.length > 0 ? `${entries.length}品の食材` : "未記録", 18, 50);
+}
+
+function roundRect(ctx, x, y, width, height, radius) {
+  const safeRadius = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + safeRadius, y);
+  ctx.arcTo(x + width, y, x + width, y + height, safeRadius);
+  ctx.arcTo(x + width, y + height, x, y + height, safeRadius);
+  ctx.arcTo(x, y + height, x, y, safeRadius);
+  ctx.arcTo(x, y, x + width, y, safeRadius);
+  ctx.closePath();
+}
+
+init();

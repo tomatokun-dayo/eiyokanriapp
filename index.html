@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>離乳食栄養メモ</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <p class="eyebrow">モックデータ</p>
+            <h1>離乳食栄養メモ</h1>
+          </div>
+        </div>
+        <div class="baby-summary">
+          <label class="age-field">
+            <span>月齢</span>
+            <select id="age-stage"></select>
+          </label>
+          <strong id="today-label">今日</strong>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="panel intake-panel" aria-labelledby="entry-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">入力</p>
+              <h2 id="entry-title">一食分を記録</h2>
+            </div>
+            <button class="ghost-button" id="reset-button" type="button">リセット</button>
+          </div>
+
+          <canvas
+            class="plate-canvas"
+            id="plate-canvas"
+            width="720"
+            height="280"
+            aria-label="今日記録した食材のイメージ"
+          ></canvas>
+
+          <form class="entry-form" id="entry-form">
+            <fieldset class="meal-field">
+              <legend>タイミング</legend>
+              <div class="segmented" id="meal-options"></div>
+            </fieldset>
+
+            <div class="batch-rows" id="batch-rows" aria-label="一食分の食材"></div>
+
+            <button class="add-row-button" id="add-batch-row" type="button">＋食材を追加</button>
+            <button class="primary-button" type="submit">一食分を追加</button>
+          </form>
+
+          <div class="quick-picks" id="quick-picks" aria-label="よく使う食材"></div>
+        </section>
+
+        <section class="panel totals-panel" aria-labelledby="totals-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">今日</p>
+              <h2 id="totals-title">栄養合計</h2>
+            </div>
+            <div class="score-pill">
+              <span id="entry-count">0</span>
+              <small>品</small>
+            </div>
+          </div>
+
+          <div class="totals-list" id="totals-list"></div>
+
+          <div class="daily-note">
+            <strong id="main-balance">まだ記録がありません</strong>
+            <span id="sub-balance">食材を追加すると合計が更新されます。</span>
+          </div>
+        </section>
+
+        <section class="panel suggestions-panel" aria-labelledby="suggestions-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">提案</p>
+              <h2 id="suggestions-title">補うとよい栄養素</h2>
+            </div>
+          </div>
+          <div class="suggestions" id="suggestions"></div>
+        </section>
+
+        <section class="panel chart-panel" aria-labelledby="trend-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">7日間</p>
+              <h2 id="trend-title">摂取量の推移</h2>
+            </div>
+          </div>
+          <fieldset class="chart-controls" aria-label="表示する栄養素">
+            <legend>表示</legend>
+            <div class="nutrient-toggles" id="chart-nutrients"></div>
+          </fieldset>
+          <div class="trend-grid" id="trend-grid"></div>
+        </section>
+
+        <section class="panel log-panel" aria-labelledby="log-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">履歴</p>
+              <h2 id="log-title">今日の記録</h2>
+            </div>
+          </div>
+          <div class="log-list" id="log-list"></div>
+        </section>
+
+        <section class="panel master-panel" aria-labelledby="master-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">マスタ</p>
+              <h2 id="master-title">食材データ</h2>
+            </div>
+            <label class="compact-filter">
+              <span>分類</span>
+              <select id="category-filter">
+                <option value="all">すべて</option>
+              </select>
+            </label>
+          </div>
+          <div class="master-list" id="master-list"></div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <span>参考</span>
+        <a
+          href="https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/kenkou/eiyou/syokuji_kijyun.html"
+          target="_blank"
+          rel="noreferrer"
+        >
+          厚生労働省 日本人の食事摂取基準
+        </a>
+      </footer>
+    </div>
+
+    <script src="data/food-master.js" defer></script>
+    <script src="data/age-targets.js" defer></script>
+    <script src="app.js" defer></script>
+  </body>
+</html>
