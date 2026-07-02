@@ -175,6 +175,37 @@ h2 {
   grid-column: span 4;
 }
 
+.backup-panel {
+  grid-column: span 4;
+}
+
+.backup-note {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.backup-import {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.backup-status {
+  min-height: 1.2em;
+  margin: 10px 0 0;
+  color: var(--teal-dark);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .chart-panel {
   grid-column: span 8;
 }
@@ -948,7 +979,8 @@ h2 {
   }
 
   .master-panel,
-  .log-panel {
+  .log-panel,
+  .backup-panel {
     grid-column: span 6;
   }
 
@@ -986,7 +1018,8 @@ h2 {
   .suggestions-panel,
   .master-panel,
   .chart-panel,
-  .log-panel {
+  .log-panel,
+  .backup-panel {
     grid-column: auto;
   }
 

@@ -38,6 +38,8 @@ const FOOD_STATES = [
 const foodStateByKey = new Map(FOOD_STATES.map((state) => [state.key, state]));
 const FOOD_STATE_STORAGE_KEY = "eiyokanri.foodStates.v1";
 const foodStateOverrides = loadStoredFoodStates();
+const defaultFoodStates = new Map(FOOD_MASTER.map((food) => [food.id, food.state]));
+const BACKUP_VERSION = 1;
 
 const elements = {
   todayLabel: document.querySelector("#today-label"),
@@ -59,6 +61,9 @@ const elements = {
   masterList: document.querySelector("#master-list"),
   categoryFilter: document.querySelector("#category-filter"),
   resetButton: document.querySelector("#reset-button"),
+  exportButton: document.querySelector("#export-button"),
+  importInput: document.querySelector("#import-input"),
+  backupStatus: document.querySelector("#backup-status"),
 };
 
 const todayKey = toDateKey(new Date());
@@ -103,6 +108,10 @@ function createMemoryStore() {
     },
     resetToday() {
       entries = entries.filter((entry) => entry.date !== todayKey);
+      persistEntries();
+    },
+    replaceAllEntries(newEntries) {
+      entries = [...newEntries];
       persistEntries();
     },
   };
@@ -398,6 +407,16 @@ function bindEvents() {
   elements.resetButton.addEventListener("click", () => {
     memoryStore.resetToday();
     render();
+  });
+
+  elements.exportButton.addEventListener("click", exportBackup);
+
+  elements.importInput.addEventListener("change", () => {
+    const file = elements.importInput.files?.[0];
+    if (file) {
+      importBackup(file);
+    }
+    elements.importInput.value = "";
   });
 
   elements.logList.addEventListener("click", (event) => {
@@ -766,10 +785,97 @@ function persistFoodStates() {
 function applyStoredFoodStates() {
   for (const food of FOOD_MASTER) {
     const override = foodStateOverrides[food.id];
-    if (foodStateByKey.has(override)) {
-      food.state = override;
-    }
+    food.state = foodStateByKey.has(override) ? override : defaultFoodStates.get(food.id);
   }
+}
+
+function setBackupStatus(text) {
+  if (elements.backupStatus) {
+    elements.backupStatus.textContent = text;
+  }
+}
+
+function exportBackup() {
+  const payload = {
+    app: "eiyokanri",
+    version: BACKUP_VERSION,
+    exportedAt: new Date().toISOString(),
+    entries: memoryStore.getAllEntries(),
+    foodStates: { ...foodStateOverrides },
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `eiyokanri-backup-${todayKey}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  setBackupStatus(`書き出しました（記録 ${payload.entries.length}件）。`);
+}
+
+function isValidBackupEntry(entry) {
+  return (
+    entry !== null &&
+    typeof entry === "object" &&
+    typeof entry.id === "string" &&
+    typeof entry.foodId === "string" &&
+    Number.isFinite(entry.amount) &&
+    typeof entry.date === "string"
+  );
+}
+
+function importBackup(file) {
+  const reader = new FileReader();
+
+  reader.onerror = () => {
+    setBackupStatus("ファイルを読み込めませんでした。");
+  };
+
+  reader.onload = () => {
+    let payload;
+    try {
+      payload = JSON.parse(String(reader.result));
+    } catch (error) {
+      setBackupStatus("読み込めませんでした。バックアップファイルか確認してください。");
+      return;
+    }
+
+    if (!Array.isArray(payload?.entries)) {
+      setBackupStatus("読み込めませんでした。バックアップファイルか確認してください。");
+      return;
+    }
+
+    const entries = payload.entries.filter(isValidBackupEntry);
+    const confirmed = window.confirm(
+      `バックアップの記録 ${entries.length}件を読み込み、今の記録と置き換えます。よろしいですか？`,
+    );
+
+    if (!confirmed) {
+      setBackupStatus("読み込みを取り消しました。");
+      return;
+    }
+
+    memoryStore.replaceAllEntries(entries);
+
+    for (const key of Object.keys(foodStateOverrides)) {
+      delete foodStateOverrides[key];
+    }
+    if (payload.foodStates && typeof payload.foodStates === "object") {
+      for (const [foodId, stateKey] of Object.entries(payload.foodStates)) {
+        if (foodById.has(foodId) && foodStateByKey.has(stateKey)) {
+          foodStateOverrides[foodId] = stateKey;
+        }
+      }
+    }
+    persistFoodStates();
+    applyStoredFoodStates();
+
+    render();
+    setBackupStatus(`読み込みました（記録 ${entries.length}件）。`);
+  };
+
+  reader.readAsText(file);
 }
 
 function setFoodState(foodId, stateKey) {

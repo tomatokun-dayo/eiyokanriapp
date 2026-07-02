@@ -127,6 +127,26 @@
           </div>
           <div class="master-list" id="master-list"></div>
         </section>
+
+        <section class="panel backup-panel" aria-labelledby="backup-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">バックアップ</p>
+              <h2 id="backup-title">データ管理</h2>
+            </div>
+          </div>
+          <p class="backup-note">
+            記録はこの端末のブラウザ内にのみ保存されます。機種変更やブラウザの変更に備えて、ときどき書き出しておくと安心です。
+          </p>
+          <div class="backup-actions">
+            <button class="ghost-button" id="export-button" type="button">JSONで書き出す</button>
+            <label class="ghost-button backup-import">
+              読み込む
+              <input id="import-input" type="file" accept=".json,application/json" hidden />
+            </label>
+          </div>
+          <p class="backup-status" id="backup-status" role="status"></p>
+        </section>
       </main>
 
       <footer class="site-footer">
