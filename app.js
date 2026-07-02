@@ -41,6 +41,10 @@ const foodStateOverrides = loadStoredFoodStates();
 const defaultFoodStates = new Map(FOOD_MASTER.map((food) => [food.id, food.state]));
 const BACKUP_VERSION = 1;
 
+const MILK_STORAGE_KEY = "eiyokanri.milk.v1";
+// 調乳後100mlあたりの代表値。製品により差があるため要検証（パッケージ表示を優先）。
+const MILK_PER_100ML = { energy: 67, protein: 1.5, fat: 3.5, carbs: 7.3, iron: 0.8, calcium: 49 };
+
 const elements = {
   todayLabel: document.querySelector("#today-label"),
   ageStage: document.querySelector("#age-stage"),
@@ -64,6 +68,10 @@ const elements = {
   exportButton: document.querySelector("#export-button"),
   importInput: document.querySelector("#import-input"),
   backupStatus: document.querySelector("#backup-status"),
+  milkForm: document.querySelector("#milk-form"),
+  milkInput: document.querySelector("#milk-input"),
+  milkList: document.querySelector("#milk-list"),
+  milkTotal: document.querySelector("#milk-total"),
 };
 
 let todayKey = toDateKey(new Date());
@@ -136,6 +144,62 @@ function loadStoredEntries() {
 
     const parsedEntries = JSON.parse(storedEntries);
     return Array.isArray(parsedEntries) ? parsedEntries : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+const milkStore = createMilkStore();
+
+function createMilkStore() {
+  let feeds = loadStoredMilkFeeds();
+
+  function persistFeeds() {
+    try {
+      window.localStorage.setItem(MILK_STORAGE_KEY, JSON.stringify(feeds));
+    } catch (error) {
+      // Keep the in-memory store usable when localStorage is blocked or full.
+    }
+  }
+
+  return {
+    getAllFeeds() {
+      return [...feeds];
+    },
+    getTodayFeeds() {
+      return feeds.filter((feed) => feed.date === todayKey);
+    },
+    addFeed(ml) {
+      const createdAt = new Date();
+      feeds = [
+        {
+          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          ml,
+          date: toDateKey(createdAt),
+          createdAt: createdAt.toISOString(),
+        },
+        ...feeds,
+      ];
+      persistFeeds();
+    },
+    removeFeed(id) {
+      feeds = feeds.filter((feed) => feed.id !== id);
+      persistFeeds();
+    },
+    replaceAllFeeds(newFeeds) {
+      feeds = [...newFeeds];
+      persistFeeds();
+    },
+  };
+}
+
+function loadStoredMilkFeeds() {
+  try {
+    const stored = window.localStorage.getItem(MILK_STORAGE_KEY);
+    if (!stored) return [];
+
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
     return [];
   }
@@ -414,6 +478,15 @@ function bindEvents() {
     render();
   });
 
+  elements.milkForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const ml = Number(elements.milkInput.value);
+    if (!Number.isFinite(ml) || ml <= 0 || ml > 1000) return;
+    milkStore.addFeed(ml);
+    elements.milkInput.value = "";
+    render();
+  });
+
   elements.exportButton.addEventListener("click", exportBackup);
 
   elements.importInput.addEventListener("change", () => {
@@ -556,6 +629,7 @@ function render() {
   renderQuickPicks();
   renderTotals(totals, entries);
   renderSuggestions(totals, entries);
+  renderMilk();
   renderLog(entries);
   renderMasterList();
   renderTrendCharts(buildTrendData(allEntries));
@@ -808,6 +882,57 @@ function applyStoredFoodStates() {
   }
 }
 
+function milkNutrient(totalMl, nutrientKey) {
+  return (MILK_PER_100ML[nutrientKey] * totalMl) / 100;
+}
+
+function renderMilk() {
+  if (!elements.milkList || !elements.milkTotal) return;
+
+  const feeds = milkStore.getTodayFeeds();
+  const totalMl = feeds.reduce((sum, feed) => sum + feed.ml, 0);
+
+  elements.milkTotal.textContent = String(totalMl);
+  elements.milkList.replaceChildren();
+
+  if (feeds.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "milk-empty";
+    empty.textContent = "今日のミルクはまだ記録がありません。";
+    elements.milkList.appendChild(empty);
+    return;
+  }
+
+  for (const feed of feeds) {
+    const row = document.createElement("div");
+    row.className = "milk-item";
+
+    const meta = document.createElement("span");
+    meta.className = "milk-meta";
+    const time = new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit" }).format(
+      new Date(feed.createdAt),
+    );
+    meta.textContent = `${time} / ${feed.ml}ml`;
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "delete-button";
+    remove.textContent = "削除";
+    remove.addEventListener("click", () => {
+      milkStore.removeFeed(feed.id);
+      render();
+    });
+
+    row.append(meta, remove);
+    elements.milkList.appendChild(row);
+  }
+
+  const summary = document.createElement("p");
+  summary.className = "milk-summary";
+  summary.textContent = `推定: 約${formatValue(milkNutrient(totalMl, "energy"), nutrientByKey.get("energy"))} / たんぱく質${formatValue(milkNutrient(totalMl, "protein"), nutrientByKey.get("protein"))} / 鉄${formatValue(milkNutrient(totalMl, "iron"), nutrientByKey.get("iron"))} / カルシウム${formatValue(milkNutrient(totalMl, "calcium"), nutrientByKey.get("calcium"))}`;
+  elements.milkList.appendChild(summary);
+}
+
 function setBackupStatus(text) {
   if (elements.backupStatus) {
     elements.backupStatus.textContent = text;
@@ -821,6 +946,7 @@ function exportBackup() {
     exportedAt: new Date().toISOString(),
     entries: memoryStore.getAllEntries(),
     foodStates: { ...foodStateOverrides },
+    milk: milkStore.getAllFeeds(),
   };
 
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -890,8 +1016,21 @@ function importBackup(file) {
     persistFoodStates();
     applyStoredFoodStates();
 
+    const milkFeeds = Array.isArray(payload.milk)
+      ? payload.milk.filter(
+          (feed) =>
+            feed !== null &&
+            typeof feed === "object" &&
+            typeof feed.id === "string" &&
+            typeof feed.date === "string" &&
+            Number.isFinite(feed.ml) &&
+            feed.ml > 0,
+        )
+      : [];
+    milkStore.replaceAllFeeds(milkFeeds);
+
     render();
-    setBackupStatus(`読み込みました（記録 ${entries.length}件）。`);
+    setBackupStatus(`読み込みました（記録 ${entries.length}件・ミルク ${milkFeeds.length}件）。`);
   };
 
   reader.readAsText(file);
