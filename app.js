@@ -66,7 +66,19 @@ const elements = {
   backupStatus: document.querySelector("#backup-status"),
 };
 
-const todayKey = toDateKey(new Date());
+let todayKey = toDateKey(new Date());
+
+function syncToday() {
+  todayKey = toDateKey(new Date());
+
+  if (elements.todayLabel) {
+    elements.todayLabel.textContent = new Intl.DateTimeFormat("ja-JP", {
+      month: "numeric",
+      day: "numeric",
+      weekday: "short",
+    }).format(new Date());
+  }
+}
 
 const memoryStore = createMemoryStore();
 let selectedChartNutrients = new Set(["energy", "protein", "iron", "calcium"]);
@@ -137,7 +149,7 @@ function createEntry({ foodId, amount, meal, inputAmount = amount, inputUnit = "
     inputAmount,
     inputUnit,
     meal,
-    date: todayKey,
+    date: toDateKey(createdAt),
     createdAt: createdAt.toISOString(),
   };
 }
@@ -157,13 +169,6 @@ function addDays(date, amount) {
 
 function init() {
   applyStoredFoodStates();
-
-  elements.todayLabel.textContent = new Intl.DateTimeFormat("ja-JP", {
-    month: "numeric",
-    day: "numeric",
-    weekday: "short",
-  }).format(new Date());
-
   renderFormOptions();
   renderCategoryFilter();
   bindEvents();
@@ -430,6 +435,18 @@ function bindEvents() {
     renderTrendCharts(buildTrendData(memoryStore.getAllEntries()));
     renderPlate(memoryStore.getTodayEntries());
   });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && todayKey !== toDateKey(new Date())) {
+      render();
+    }
+  });
+
+  window.setInterval(() => {
+    if (todayKey !== toDateKey(new Date())) {
+      render();
+    }
+  }, 60000);
 }
 
 function getBatchEntries() {
@@ -529,6 +546,8 @@ function fillNextBatchRow(food) {
 }
 
 function render() {
+  syncToday();
+
   const entries = memoryStore.getTodayEntries();
   const allEntries = memoryStore.getAllEntries();
   const totals = calculateTotals(entries);
