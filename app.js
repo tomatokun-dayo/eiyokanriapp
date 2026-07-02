@@ -419,7 +419,7 @@ function getBatchEntries() {
       const foodId = row.querySelector(".batch-food-select")?.value;
       const amount = Number(row.querySelector(".batch-amount-input")?.value);
       const unit = row.querySelector(".batch-unit-select")?.value || "g";
-      const grams = amountToGrams(amount, unit);
+      const grams = amountToGrams(amount, unit, foodById.get(foodId));
 
       return { foodId, amount, unit, grams };
     })
@@ -430,9 +430,19 @@ function clearBatchRows() {
   renderBatchRows(INITIAL_BATCH_ROW_COUNT);
 }
 
-function amountToGrams(amount, unitKey) {
+function gramsPerUnit(unitKey, food) {
   const unit = unitByKey.get(unitKey) ?? unitByKey.get("g");
-  return amount * unit.grams;
+  if (unit.key !== "g") {
+    const perSpoon = food?.spoonGrams?.[unit.key];
+    if (Number.isFinite(perSpoon) && perSpoon > 0) {
+      return perSpoon;
+    }
+  }
+  return unit.grams;
+}
+
+function amountToGrams(amount, unitKey, food) {
+  return amount * gramsPerUnit(unitKey, food);
 }
 
 function convertAmountInputUnit(row, unitSelect) {
@@ -440,11 +450,11 @@ function convertAmountInputUnit(row, unitSelect) {
   const previousUnit = unitSelect.dataset.currentUnit || "g";
   const nextUnit = unitSelect.value || "g";
   const amount = Number(input?.value);
+  const food = foodById.get(row?.querySelector(".batch-food-select")?.value);
 
   if (input && Number.isFinite(amount) && amount > 0 && previousUnit !== nextUnit) {
-    const grams = amountToGrams(amount, previousUnit);
-    const nextUnitInfo = unitByKey.get(nextUnit) ?? unitByKey.get("g");
-    input.value = formatPlainNumber(grams / nextUnitInfo.grams);
+    const grams = amountToGrams(amount, previousUnit, food);
+    input.value = formatPlainNumber(grams / gramsPerUnit(nextUnit, food));
   }
 
   unitSelect.dataset.currentUnit = nextUnit;
