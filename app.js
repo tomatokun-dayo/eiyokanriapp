@@ -42,8 +42,10 @@ const defaultFoodStates = new Map(FOOD_MASTER.map((food) => [food.id, food.state
 const BACKUP_VERSION = 1;
 
 const MILK_STORAGE_KEY = "eiyokanri.milk.v1";
-// 調乳後100mlあたりの代表値。製品により差があるため要検証（パッケージ表示を優先）。
-const MILK_PER_100ML = { energy: 67, protein: 1.5, fat: 3.5, carbs: 7.3, iron: 0.8, calcium: 49 };
+// 文部科学省 食品成分データベース foodNo 13011「乳児用調製粉乳」(100gあたり)を13%調乳（粉13g/出来上がり100ml）で換算。参照日: 2026-07-03。
+// https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=13_13011_7
+// 製品により差があるため、パッケージ表示を優先。
+const MILK_PER_100ML = { energy: 66, protein: 1.6, fat: 3.5, carbs: 7.3, iron: 0.8, calcium: 48 };
 
 const elements = {
   todayLabel: document.querySelector("#today-label"),
