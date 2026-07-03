@@ -1,6 +1,6 @@
 # 離乳食栄養管理アプリ ロードマップ
 
-最終更新: 2026-07-02
+最終更新: 2026-07-04
 
 ## 現在の状態
 
@@ -22,14 +22,21 @@
 - 食材の状態管理（未導入 / 導入済み / 注意中 / 避ける）
   - 食材データ一覧のセレクトで変更、`eiyokanri.foodStates.v1` に永続化
   - 「未導入」「避ける」は提案候補から自動除外
+- ミルク記録（別枠、離乳食の目安バーには合算しない）、JSONエクスポート/インポート
+- 月齢ラインの基礎値・ミルク栄養値は出典照合済み（2026-07-03）
+- app.js を役割ごとに分割済み（下記ファイル構成）
 
 主なファイル:
 
-- `index.html`
-- `styles.css`
-- `app.js`（UI・ロジック一体。約1,100行）
+- `index.html` / `styles.css`
+- `app.js`（画面描画・イベント処理）
+- `store.js`（localStorage 永続化: 記録・ミルク・食材状態の3ストア）
+- `logic/nutrition.js`（栄養集計・フォーマット、データインデックス）
+- `logic/suggestions.js`（不足栄養素の提案ロジック）
+- `logic/units.js`（スプーン換算などの単位ロジック）
 - `data/food-master.js`（`window.FOOD_MASTER`）
 - `data/age-targets.js`（`window.AGE_TARGETS`）
+- `.claude/launch.json`（ローカルプレビュー起動設定）
 - `README.md`
 
 ## 設計方針（明文化）
@@ -101,12 +108,12 @@
 - 食材検索
 - 行可変化（実装済み）はここへの応急対応。テンプレートが入れば入力コストが大きく下がる
 
-### 7. app.js の分割リファクタ
+### 7. app.js の分割リファクタ — ✅ 完了（2026-07-04）
 
-- UI 大改修（項目8）の前にやる
-- 案: `logic/nutrition.js`（集計・目安）、`logic/suggestions.js`（提案）、`logic/units.js`（換算）、`store.js`（localStorage）、`app.js`（UI・イベント）
-- ESモジュールは使わず `<script defer>` の順序読み込みで分割
-- 純関数化した部分に Node の簡易テストを付ける
+- `logic/nutrition.js`（集計・目安のデータインデックス・フォーマット）、`logic/suggestions.js`（提案）、`logic/units.js`（換算）、`store.js`（localStorage 3ストア）、`app.js`（UI・イベントのみ）に分割
+- ESモジュールは使わず `<script defer>` の順序読み込みで分割（file:// 直開きを維持）
+- ロジック変更なしの純粋な移動。ブラウザ実機（簡易サーバー経由）で記録追加・提案・ミルク・食材状態変更・スプーン換算・エクスポート・リロード後の永続化を確認済み
+- 残: 純関数部分への Node の簡易テスト整備
 
 ### 8. UIブラッシュアップ（モバイル前提）
 
