@@ -1,12 +1,3 @@
-const NUTRIENTS = [
-  { key: "energy", label: "エネルギー", unit: "kcal", target: 450, color: "#da6f50", decimals: 0 },
-  { key: "protein", label: "たんぱく質", unit: "g", target: 15, color: "#24786a", decimals: 1 },
-  { key: "fat", label: "脂質", unit: "g", target: 18, color: "#d99f32", decimals: 1 },
-  { key: "carbs", label: "炭水化物", unit: "g", target: 65, color: "#657fb4", decimals: 1 },
-  { key: "iron", label: "鉄", unit: "mg", target: 5, color: "#8b6ba8", decimals: 1 },
-  { key: "calcium", label: "カルシウム", unit: "mg", target: 250, color: "#7e9b51", decimals: 0 },
-];
-
 const MEALS = [
   { id: "morning", label: "朝" },
   { id: "lunch", label: "昼" },
@@ -16,36 +7,6 @@ const MEALS = [
 
 const INITIAL_BATCH_ROW_COUNT = 3;
 const MIN_BATCH_ROW_COUNT = 1;
-const ENTRY_STORAGE_KEY = "eiyokanri.entries.v1";
-
-const AMOUNT_UNITS = [
-  { key: "g", label: "g", grams: 1, min: "1", step: "1", max: "200" },
-  { key: "tsp", label: "小さじ", grams: 5, min: "0.5", step: "0.5", max: "20" },
-  { key: "tbsp", label: "大さじ", grams: 15, min: "0.5", step: "0.5", max: "10" },
-];
-
-const unitByKey = new Map(AMOUNT_UNITS.map((unit) => [unit.key, unit]));
-const foodById = new Map(FOOD_MASTER.map((food) => [food.id, food]));
-const nutrientByKey = new Map(NUTRIENTS.map((nutrient) => [nutrient.key, nutrient]));
-const ageTargetById = new Map(AGE_TARGETS.map((target) => [target.id, target]));
-
-const FOOD_STATES = [
-  { key: "not_introduced", label: "未導入", color: "#9aa49c" },
-  { key: "introduced", label: "導入済み", color: "#24786a" },
-  { key: "caution", label: "注意中", color: "#d99f32" },
-  { key: "avoid", label: "避ける", color: "#da6f50" },
-];
-const foodStateByKey = new Map(FOOD_STATES.map((state) => [state.key, state]));
-const FOOD_STATE_STORAGE_KEY = "eiyokanri.foodStates.v1";
-const foodStateOverrides = loadStoredFoodStates();
-const defaultFoodStates = new Map(FOOD_MASTER.map((food) => [food.id, food.state]));
-const BACKUP_VERSION = 1;
-
-const MILK_STORAGE_KEY = "eiyokanri.milk.v1";
-// 文部科学省 食品成分データベース foodNo 13011「乳児用調製粉乳」(100gあたり)を13%調乳（粉13g/出来上がり100ml）で換算。参照日: 2026-07-03。
-// https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=13_13011_7
-// 製品により差があるため、パッケージ表示を優先。
-const MILK_PER_100ML = { energy: 66, protein: 1.6, fat: 3.5, carbs: 7.3, iron: 0.8, calcium: 48 };
 
 const elements = {
   todayLabel: document.querySelector("#today-label"),
@@ -90,148 +51,9 @@ function syncToday() {
   }
 }
 
-const memoryStore = createMemoryStore();
 let selectedChartNutrients = new Set(["energy", "protein", "iron", "calcium"]);
 let selectedAgeTargetId = "7-8";
 let activeBatchRowIndex = null;
-
-function createMemoryStore() {
-  let entries = loadStoredEntries();
-
-  function persistEntries() {
-    try {
-      window.localStorage.setItem(ENTRY_STORAGE_KEY, JSON.stringify(entries));
-    } catch (error) {
-      // Keep the in-memory store usable when localStorage is blocked or full.
-    }
-  }
-
-  return {
-    getEntries() {
-      return [...entries];
-    },
-    getAllEntries() {
-      return [...entries];
-    },
-    getTodayEntries() {
-      return entries.filter((entry) => entry.date === todayKey);
-    },
-    addEntry(entry) {
-      entries = [entry, ...entries];
-      persistEntries();
-    },
-    addEntries(newEntries) {
-      entries = [...newEntries, ...entries];
-      persistEntries();
-    },
-    removeEntry(id) {
-      entries = entries.filter((entry) => entry.id !== id);
-      persistEntries();
-    },
-    resetToday() {
-      entries = entries.filter((entry) => entry.date !== todayKey);
-      persistEntries();
-    },
-    replaceAllEntries(newEntries) {
-      entries = [...newEntries];
-      persistEntries();
-    },
-  };
-}
-
-function loadStoredEntries() {
-  try {
-    const storedEntries = window.localStorage.getItem(ENTRY_STORAGE_KEY);
-    if (!storedEntries) return [];
-
-    const parsedEntries = JSON.parse(storedEntries);
-    return Array.isArray(parsedEntries) ? parsedEntries : [];
-  } catch (error) {
-    return [];
-  }
-}
-
-const milkStore = createMilkStore();
-
-function createMilkStore() {
-  let feeds = loadStoredMilkFeeds();
-
-  function persistFeeds() {
-    try {
-      window.localStorage.setItem(MILK_STORAGE_KEY, JSON.stringify(feeds));
-    } catch (error) {
-      // Keep the in-memory store usable when localStorage is blocked or full.
-    }
-  }
-
-  return {
-    getAllFeeds() {
-      return [...feeds];
-    },
-    getTodayFeeds() {
-      return feeds.filter((feed) => feed.date === todayKey);
-    },
-    addFeed(ml) {
-      const createdAt = new Date();
-      feeds = [
-        {
-          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-          ml,
-          date: toDateKey(createdAt),
-          createdAt: createdAt.toISOString(),
-        },
-        ...feeds,
-      ];
-      persistFeeds();
-    },
-    removeFeed(id) {
-      feeds = feeds.filter((feed) => feed.id !== id);
-      persistFeeds();
-    },
-    replaceAllFeeds(newFeeds) {
-      feeds = [...newFeeds];
-      persistFeeds();
-    },
-  };
-}
-
-function loadStoredMilkFeeds() {
-  try {
-    const stored = window.localStorage.getItem(MILK_STORAGE_KEY);
-    if (!stored) return [];
-
-    const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    return [];
-  }
-}
-
-function createEntry({ foodId, amount, meal, inputAmount = amount, inputUnit = "g", createdAt = new Date() }) {
-  return {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    foodId,
-    amount,
-    inputAmount,
-    inputUnit,
-    meal,
-    date: toDateKey(createdAt),
-    createdAt: createdAt.toISOString(),
-  };
-}
-
-function toDateKey(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function addDays(date, amount) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + amount);
-  return next;
-}
 
 function init() {
   applyStoredFoodStates();
@@ -541,21 +363,6 @@ function clearBatchRows() {
   renderBatchRows(INITIAL_BATCH_ROW_COUNT);
 }
 
-function gramsPerUnit(unitKey, food) {
-  const unit = unitByKey.get(unitKey) ?? unitByKey.get("g");
-  if (unit.key !== "g") {
-    const perSpoon = food?.spoonGrams?.[unit.key];
-    if (Number.isFinite(perSpoon) && perSpoon > 0) {
-      return perSpoon;
-    }
-  }
-  return unit.grams;
-}
-
-function amountToGrams(amount, unitKey, food) {
-  return amount * gramsPerUnit(unitKey, food);
-}
-
 function convertAmountInputUnit(row, unitSelect) {
   const input = row?.querySelector(".batch-amount-input");
   const previousUnit = unitSelect.dataset.currentUnit || "g";
@@ -580,12 +387,6 @@ function formatEntryAmount(entry) {
   }
 
   return `${unit.label}${formatPlainNumber(inputAmount)}（約${formatPlainNumber(entry.amount)}g）`;
-}
-
-function formatPlainNumber(value) {
-  return Number(value || 0)
-    .toFixed(1)
-    .replace(/\.0$/, "");
 }
 
 function updateAmountInputForUnit(row) {
@@ -638,21 +439,6 @@ function render() {
   renderPlate(entries);
 }
 
-function calculateTotals(entries) {
-  const totals = Object.fromEntries(NUTRIENTS.map((nutrient) => [nutrient.key, 0]));
-
-  for (const entry of entries) {
-    const food = foodById.get(entry.foodId);
-    if (!food) continue;
-
-    for (const nutrient of NUTRIENTS) {
-      totals[nutrient.key] += (food.per100[nutrient.key] * entry.amount) / 100;
-    }
-  }
-
-  return totals;
-}
-
 function getActiveAgeTarget() {
   return ageTargetById.get(selectedAgeTargetId) ?? ageTargetById.get("7-8");
 }
@@ -660,30 +446,6 @@ function getActiveAgeTarget() {
 function getTargetValue(nutrientKey) {
   const ageTarget = getActiveAgeTarget();
   return ageTarget.targets[nutrientKey] ?? nutrientByKey.get(nutrientKey)?.target ?? 0;
-}
-
-const SUGGESTION_NUTRIENT_KEYS = ["energy", "protein", "iron", "calcium"];
-const SUGGESTION_THRESHOLD = 0.7;
-const SUGGESTION_EXCLUDED_STATES = new Set(["not_introduced", "avoid"]);
-
-function buildSuggestions(totals) {
-  return SUGGESTION_NUTRIENT_KEYS.map((key) => {
-    const target = getTargetValue(key);
-    const value = totals[key] ?? 0;
-    const ratio = target > 0 ? value / target : 1;
-    return { key, ratio, target };
-  })
-    .filter((item) => item.target > 0 && item.ratio < SUGGESTION_THRESHOLD)
-    .sort((a, b) => a.ratio - b.ratio)
-    .slice(0, 3);
-}
-
-function findFoodSuggestions(nutrientKey) {
-  return FOOD_MASTER.filter(
-    (food) => !SUGGESTION_EXCLUDED_STATES.has(food.state) && (food.per100[nutrientKey] ?? 0) > 0,
-  )
-    .sort((a, b) => b.per100[nutrientKey] - a.per100[nutrientKey])
-    .slice(0, 3);
 }
 
 function createSuggestionMessage(text) {
@@ -798,12 +560,6 @@ function renderTotals(totals, entries) {
   elements.subBalance.textContent = `${ageTarget.label}（${ageTarget.note}）の離乳食からの目安と比較中。エネルギー ${formatValue(energy, nutrientByKey.get("energy"))}、たんぱく質 ${formatValue(protein, nutrientByKey.get("protein"))}。`;
 }
 
-function formatValue(value, nutrient) {
-  const decimals = nutrient?.decimals ?? 1;
-  const rounded = Number(value || 0).toFixed(decimals);
-  return `${rounded.replace(/\.0$/, "")}${nutrient?.unit ? nutrient.unit : ""}`;
-}
-
 function renderQuickPicks() {
   elements.quickPicks.innerHTML = FOOD_MASTER.slice(0, 6)
     .map(
@@ -856,36 +612,6 @@ function renderLog(entries) {
       `;
     })
     .join("");
-}
-
-function loadStoredFoodStates() {
-  try {
-    const raw = window.localStorage.getItem(FOOD_STATE_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch (error) {
-    return {};
-  }
-}
-
-function persistFoodStates() {
-  try {
-    window.localStorage.setItem(FOOD_STATE_STORAGE_KEY, JSON.stringify(foodStateOverrides));
-  } catch (error) {
-    // Keep the in-memory states usable when localStorage is blocked or full.
-  }
-}
-
-function applyStoredFoodStates() {
-  for (const food of FOOD_MASTER) {
-    const override = foodStateOverrides[food.id];
-    food.state = foodStateByKey.has(override) ? override : defaultFoodStates.get(food.id);
-  }
-}
-
-function milkNutrient(totalMl, nutrientKey) {
-  return (MILK_PER_100ML[nutrientKey] * totalMl) / 100;
 }
 
 function renderMilk() {
@@ -1036,15 +762,6 @@ function importBackup(file) {
   };
 
   reader.readAsText(file);
-}
-
-function setFoodState(foodId, stateKey) {
-  const food = foodById.get(foodId);
-  if (!food || !foodStateByKey.has(stateKey)) return;
-  food.state = stateKey;
-  foodStateOverrides[foodId] = stateKey;
-  persistFoodStates();
-  render();
 }
 
 function renderMasterList() {
