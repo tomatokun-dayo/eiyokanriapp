@@ -242,6 +242,10 @@ function bindEvents() {
       });
     });
 
+    for (const row of rows) {
+      foodPreferenceStore.remember(row.foodId, row.unit, row.amount);
+    }
+
     memoryStore.addEntries(entries);
     clearBatchRows();
     render();
@@ -276,11 +280,7 @@ function bindEvents() {
     }
 
     if (food) {
-      input.value = food.defaultAmount;
-      const unitSelectForRow = row.querySelector(".batch-unit-select");
-      unitSelectForRow.value = "g";
-      unitSelectForRow.dataset.currentUnit = "g";
-      updateAmountInputForUnit(row);
+      applyFoodPreferenceToRow(row, food);
     } else if (input) {
       input.value = "";
     }
@@ -565,15 +565,28 @@ function fillNextBatchRow(food) {
 
   const select = targetRow.querySelector(".batch-food-select");
   const input = targetRow.querySelector(".batch-amount-input");
-  const unitSelect = targetRow.querySelector(".batch-unit-select");
   select.value = food.id;
-  input.value = food.defaultAmount;
-  unitSelect.value = "g";
-  unitSelect.dataset.currentUnit = "g";
-  updateAmountInputForUnit(targetRow);
+  applyFoodPreferenceToRow(targetRow, food);
   activeBatchRowIndex = Number(targetRow.dataset.batchRow);
   input.focus();
   input.select();
+}
+
+function applyFoodPreferenceToRow(row, food) {
+  const input = row.querySelector(".batch-amount-input");
+  const unitSelect = row.querySelector(".batch-unit-select");
+  const preference = foodPreferenceStore.getPreference(food.id);
+
+  const unit = preference && unitByKey.has(preference.unit) ? preference.unit : "g";
+  const amount =
+    preference && Number.isFinite(preference.amount) && preference.amount > 0
+      ? preference.amount
+      : food.defaultAmount;
+
+  unitSelect.value = unit;
+  unitSelect.dataset.currentUnit = unit;
+  updateAmountInputForUnit(row);
+  input.value = amount;
 }
 
 function render() {
@@ -831,6 +844,7 @@ function exportBackup() {
     foodStates: { ...foodStateOverrides },
     milk: milkStore.getAllFeeds(),
     mealTemplates: mealTemplateStore.getAllTemplates(),
+    foodPrefs: foodPreferenceStore.getAllPreferences(),
   };
 
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -938,6 +952,23 @@ function importBackup(file) {
       : [];
     mealTemplateStore.replaceAllTemplates(mealTemplates);
     renderMealTemplates();
+
+    const foodPrefs = {};
+    if (payload.foodPrefs && typeof payload.foodPrefs === "object" && !Array.isArray(payload.foodPrefs)) {
+      for (const [foodId, pref] of Object.entries(payload.foodPrefs)) {
+        if (
+          foodById.has(foodId) &&
+          pref !== null &&
+          typeof pref === "object" &&
+          unitByKey.has(pref.unit) &&
+          Number.isFinite(pref.amount) &&
+          pref.amount > 0
+        ) {
+          foodPrefs[foodId] = { unit: pref.unit, amount: pref.amount };
+        }
+      }
+    }
+    foodPreferenceStore.replaceAllPreferences(foodPrefs);
 
     render();
     setBackupStatus(

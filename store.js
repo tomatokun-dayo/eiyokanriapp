@@ -2,6 +2,7 @@ const ENTRY_STORAGE_KEY = "eiyokanri.entries.v1";
 const MILK_STORAGE_KEY = "eiyokanri.milk.v1";
 const FOOD_STATE_STORAGE_KEY = "eiyokanri.foodStates.v1";
 const MEAL_TEMPLATE_STORAGE_KEY = "eiyokanri.mealTemplates.v1";
+const FOOD_PREF_STORAGE_KEY = "eiyokanri.foodPrefs.v1";
 const BACKUP_VERSION = 1;
 
 const FOOD_STATES = [
@@ -195,6 +196,49 @@ function loadStoredMealTemplates() {
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
     return [];
+  }
+}
+
+const foodPreferenceStore = createFoodPreferenceStore();
+
+function createFoodPreferenceStore() {
+  let preferences = loadStoredFoodPreferences();
+
+  function persistPreferences() {
+    try {
+      window.localStorage.setItem(FOOD_PREF_STORAGE_KEY, JSON.stringify(preferences));
+    } catch (error) {
+      // Keep the in-memory store usable when localStorage is blocked or full.
+    }
+  }
+
+  return {
+    getPreference(foodId) {
+      return preferences[foodId] ?? null;
+    },
+    getAllPreferences() {
+      return { ...preferences };
+    },
+    remember(foodId, unit, amount) {
+      preferences[foodId] = { unit, amount };
+      persistPreferences();
+    },
+    replaceAllPreferences(nextPreferences) {
+      preferences = { ...nextPreferences };
+      persistPreferences();
+    },
+  };
+}
+
+function loadStoredFoodPreferences() {
+  try {
+    const stored = window.localStorage.getItem(FOOD_PREF_STORAGE_KEY);
+    if (!stored) return {};
+
+    const parsed = JSON.parse(stored);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (error) {
+    return {};
   }
 }
 
