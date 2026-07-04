@@ -159,6 +159,116 @@ h2 {
   box-shadow: var(--shadow);
 }
 
+.summary-panel {
+  grid-column: span 12;
+}
+
+.summary-head .eyebrow {
+  margin-bottom: 10px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.summary-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.summary-stat {
+  display: grid;
+  gap: 2px;
+  min-width: 96px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.summary-stat strong {
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-stat span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.summary-message {
+  margin: 12px 0 0;
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.summary-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.panel-details summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  list-style: none;
+  min-height: 32px;
+}
+
+.panel-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.panel-details summary .eyebrow {
+  margin-bottom: 0;
+}
+
+.panel-details summary h2 {
+  font-size: 1.04rem;
+}
+
+.panel-details summary::after {
+  content: "▾";
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.panel-details[open] summary::after {
+  content: "▴";
+}
+
+.panel-details-body {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.master-controls {
+  display: grid;
+  gap: 8px;
+}
+
+.master-controls .master-search-input {
+  margin-bottom: 0;
+}
+
 .intake-panel {
   grid-column: span 4;
 }
@@ -176,7 +286,7 @@ h2 {
 }
 
 .backup-panel {
-  grid-column: span 4;
+  grid-column: span 12;
 }
 
 .milk-panel {
@@ -282,7 +392,7 @@ h2 {
 }
 
 .chart-panel {
-  grid-column: span 8;
+  grid-column: span 12;
 }
 
 .log-panel {
@@ -1131,13 +1241,24 @@ h2 {
 }
 
 .site-footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  display: grid;
   gap: 8px;
   padding: 22px 2px 6px;
   color: var(--muted);
   font-size: 0.82rem;
+}
+
+.site-footer .disclaimer {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.site-footer .footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
 }
 
 .site-footer span {
@@ -1165,13 +1286,14 @@ h2 {
 
   .master-panel,
   .log-panel,
-  .backup-panel,
   .milk-panel {
     grid-column: span 6;
   }
 
   .chart-panel,
-  .suggestions-panel {
+  .suggestions-panel,
+  .summary-panel,
+  .backup-panel {
     grid-column: span 12;
   }
 }
@@ -1199,6 +1321,7 @@ h2 {
     grid-template-columns: 1fr;
   }
 
+  .summary-panel,
   .intake-panel,
   .totals-panel,
   .suggestions-panel,

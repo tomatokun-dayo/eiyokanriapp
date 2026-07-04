@@ -10,6 +10,9 @@ const MIN_BATCH_ROW_COUNT = 1;
 
 const elements = {
   todayLabel: document.querySelector("#today-label"),
+  summaryStats: document.querySelector("#summary-stats"),
+  summaryMessage: document.querySelector("#summary-message"),
+  trendDetails: document.querySelector("#trend-details"),
   ageStage: document.querySelector("#age-stage"),
   form: document.querySelector("#entry-form"),
   batchRows: document.querySelector("#batch-rows"),
@@ -310,6 +313,12 @@ function bindEvents() {
 
   elements.masterSearch.addEventListener("input", renderMasterList);
 
+  elements.trendDetails.addEventListener("toggle", () => {
+    if (elements.trendDetails.open) {
+      renderTrendCharts(buildTrendData(memoryStore.getAllEntries()));
+    }
+  });
+
   elements.resetButton.addEventListener("click", () => {
     memoryStore.resetToday();
     render();
@@ -600,6 +609,7 @@ function render() {
   const totals = calculateTotals(entries);
 
   elements.entryCount.textContent = String(entries.length);
+  renderSummary(totals, entries);
   renderQuickPicks();
   renderTotals(totals, entries);
   renderSuggestions(totals, entries);
@@ -608,6 +618,50 @@ function render() {
   renderMasterList();
   renderTrendCharts(buildTrendData(allEntries));
   renderPlate(entries);
+}
+
+function renderSummary(totals, entries) {
+  if (!elements.summaryStats || !elements.summaryMessage) return;
+
+  const milkTotal = milkStore.getTodayFeeds().reduce((sum, feed) => sum + feed.ml, 0);
+  const percentOf = (key) => {
+    const target = getTargetValue(key);
+    if (target <= 0) return 0;
+    return Math.round(((totals[key] ?? 0) / target) * 100);
+  };
+
+  const stats = [
+    { label: "記録", value: `${entries.length}品` },
+    { label: "エネルギー", value: `${percentOf("energy")}%` },
+    { label: "鉄", value: `${percentOf("iron")}%` },
+    { label: "ミルク", value: `${milkTotal}ml` },
+  ];
+
+  elements.summaryStats.replaceChildren();
+  for (const stat of stats) {
+    const item = document.createElement("div");
+    item.className = "summary-stat";
+    const value = document.createElement("strong");
+    value.textContent = stat.value;
+    const label = document.createElement("span");
+    label.textContent = stat.label;
+    item.append(value, label);
+    elements.summaryStats.appendChild(item);
+  }
+
+  let message;
+  if (entries.length === 0) {
+    message = "今日はまだ記録がありません。1品から気軽に記録してみましょう。";
+  } else {
+    const deficits = buildSuggestions(totals);
+    if (deficits.length === 0) {
+      message = "対象の栄養素はバランスよく摂れています。";
+    } else {
+      const top = nutrientByKey.get(deficits[0].key);
+      message = `次は${top.label}を足せるとよさそうです。詳しくは「補うとよい栄養素」をどうぞ。`;
+    }
+  }
+  elements.summaryMessage.textContent = message;
 }
 
 function getActiveAgeTarget() {

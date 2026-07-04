@@ -26,6 +26,16 @@
       </header>
 
       <main class="workspace">
+        <section class="panel summary-panel" aria-labelledby="summary-title">
+          <div class="summary-head">
+            <p class="eyebrow">今日のまとめ</p>
+            <h2 id="summary-title" class="visually-hidden">今日のまとめ</h2>
+          </div>
+          <div class="summary-stats" id="summary-stats"></div>
+          <p class="summary-message" id="summary-message"></p>
+          <p class="summary-note">％は「離乳食から取りたい分」の目安に対する割合です。</p>
+        </section>
+
         <section class="panel intake-panel" aria-labelledby="entry-title">
           <div class="panel-heading">
             <div>
@@ -34,14 +44,6 @@
             </div>
             <button class="ghost-button" id="reset-button" type="button">リセット</button>
           </div>
-
-          <canvas
-            class="plate-canvas"
-            id="plate-canvas"
-            width="720"
-            height="280"
-            aria-label="今日記録した食材のイメージ"
-          ></canvas>
 
           <form class="entry-form" id="entry-form">
             <fieldset class="meal-field">
@@ -126,20 +128,6 @@
           </p>
         </section>
 
-        <section class="panel chart-panel" aria-labelledby="trend-title">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">7日間</p>
-              <h2 id="trend-title">摂取量の推移</h2>
-            </div>
-          </div>
-          <fieldset class="chart-controls" aria-label="表示する栄養素">
-            <legend>表示</legend>
-            <div class="nutrient-toggles" id="chart-nutrients"></div>
-          </fieldset>
-          <div class="trend-grid" id="trend-grid"></div>
-        </section>
-
         <section class="panel log-panel" aria-labelledby="log-title">
           <div class="panel-heading">
             <div>
@@ -147,63 +135,97 @@
               <h2 id="log-title">今日の記録</h2>
             </div>
           </div>
+          <canvas
+            class="plate-canvas"
+            id="plate-canvas"
+            width="720"
+            height="280"
+            aria-label="今日記録した食材のイメージ"
+          ></canvas>
           <div class="log-list" id="log-list"></div>
         </section>
 
-        <section class="panel master-panel" aria-labelledby="master-title">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">マスタ</p>
-              <h2 id="master-title">食材データ</h2>
+        <section class="panel chart-panel" aria-labelledby="trend-title">
+          <details class="panel-details" id="trend-details">
+            <summary>
+              <span class="eyebrow">7日間</span>
+              <h2 id="trend-title">摂取量の推移</h2>
+            </summary>
+            <div class="panel-details-body">
+              <fieldset class="chart-controls" aria-label="表示する栄養素">
+                <legend>表示</legend>
+                <div class="nutrient-toggles" id="chart-nutrients"></div>
+              </fieldset>
+              <div class="trend-grid" id="trend-grid"></div>
             </div>
-            <label class="compact-filter">
-              <span>分類</span>
-              <select id="category-filter">
-                <option value="all">すべて</option>
-              </select>
-            </label>
-          </div>
-          <input
-            class="master-search-input"
-            id="master-search"
-            type="search"
-            placeholder="食材を検索"
-            aria-label="食材を検索"
-            autocomplete="off"
-          />
-          <div class="master-list" id="master-list"></div>
+          </details>
+        </section>
+
+        <section class="panel master-panel" aria-labelledby="master-title">
+          <details class="panel-details" id="master-details">
+            <summary>
+              <span class="eyebrow">マスタ</span>
+              <h2 id="master-title">食材データ</h2>
+            </summary>
+            <div class="panel-details-body">
+              <div class="master-controls">
+                <label class="compact-filter">
+                  <span>分類</span>
+                  <select id="category-filter">
+                    <option value="all">すべて</option>
+                  </select>
+                </label>
+                <input
+                  class="master-search-input"
+                  id="master-search"
+                  type="search"
+                  placeholder="食材を検索"
+                  aria-label="食材を検索"
+                  autocomplete="off"
+                />
+              </div>
+              <div class="master-list" id="master-list"></div>
+            </div>
+          </details>
         </section>
 
         <section class="panel backup-panel" aria-labelledby="backup-title">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">バックアップ</p>
+          <details class="panel-details" id="backup-details">
+            <summary>
+              <span class="eyebrow">バックアップ</span>
               <h2 id="backup-title">データ管理</h2>
+            </summary>
+            <div class="panel-details-body">
+              <p class="backup-note">
+                記録はこの端末のブラウザ内にのみ保存されます。機種変更やブラウザの変更に備えて、ときどき書き出しておくと安心です。
+              </p>
+              <div class="backup-actions">
+                <button class="ghost-button" id="export-button" type="button">JSONで書き出す</button>
+                <label class="ghost-button backup-import">
+                  読み込む
+                  <input id="import-input" type="file" accept=".json,application/json" hidden />
+                </label>
+              </div>
+              <p class="backup-status" id="backup-status" role="status"></p>
             </div>
-          </div>
-          <p class="backup-note">
-            記録はこの端末のブラウザ内にのみ保存されます。機種変更やブラウザの変更に備えて、ときどき書き出しておくと安心です。
-          </p>
-          <div class="backup-actions">
-            <button class="ghost-button" id="export-button" type="button">JSONで書き出す</button>
-            <label class="ghost-button backup-import">
-              読み込む
-              <input id="import-input" type="file" accept=".json,application/json" hidden />
-            </label>
-          </div>
-          <p class="backup-status" id="backup-status" role="status"></p>
+          </details>
         </section>
       </main>
 
       <footer class="site-footer">
-        <span>参考</span>
-        <a
-          href="https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/kenkou/eiyou/syokuji_kijyun.html"
-          target="_blank"
-          rel="noreferrer"
-        >
-          厚生労働省 日本人の食事摂取基準
-        </a>
+        <p class="disclaimer">
+          このアプリの目安は家庭内の参考情報で、医療・栄養指導の代替ではありません。気になることがあれば、かかりつけ医や保健師にご相談ください。
+        </p>
+        <p class="footer-links">
+          <span>参考</span>
+          <a
+            href="https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/kenkou/eiyou/syokuji_kijyun.html"
+            target="_blank"
+            rel="noreferrer"
+          >
+            厚生労働省 日本人の食事摂取基準
+          </a>
+        </p>
       </footer>
     </div>
 
