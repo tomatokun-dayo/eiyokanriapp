@@ -26,6 +26,7 @@ const elements = {
   plateCanvas: document.querySelector("#plate-canvas"),
   logList: document.querySelector("#log-list"),
   masterList: document.querySelector("#master-list"),
+  masterSearch: document.querySelector("#master-search"),
   categoryFilter: document.querySelector("#category-filter"),
   resetButton: document.querySelector("#reset-button"),
   copyPreviousButton: document.querySelector("#copy-previous-button"),
@@ -306,6 +307,8 @@ function bindEvents() {
   });
 
   elements.categoryFilter.addEventListener("change", renderMasterList);
+
+  elements.masterSearch.addEventListener("input", renderMasterList);
 
   elements.resetButton.addEventListener("click", () => {
     memoryStore.resetToday();
@@ -981,9 +984,25 @@ function importBackup(file) {
 
 function renderMasterList() {
   const category = elements.categoryFilter.value;
-  const foods = FOOD_MASTER.filter((food) => category === "all" || food.category === category);
+  const query = (elements.masterSearch?.value ?? "").trim().toLowerCase();
+  const foods = FOOD_MASTER.filter((food) => {
+    const matchesCategory = category === "all" || food.category === category;
+    const matchesQuery =
+      query === "" ||
+      food.name.toLowerCase().includes(query) ||
+      food.category.toLowerCase().includes(query);
+    return matchesCategory && matchesQuery;
+  });
 
   elements.masterList.replaceChildren();
+
+  if (foods.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "master-empty";
+    empty.textContent = "該当する食材がありません。";
+    elements.masterList.appendChild(empty);
+    return;
+  }
 
   for (const food of foods) {
     const stateInfo = foodStateByKey.get(food.state) ?? foodStateByKey.get("introduced");

@@ -955,9 +955,28 @@ h2 {
 }
 
 .log-list,
+.master-search-input {
+  width: 100%;
+  min-height: 42px;
+  margin-bottom: 12px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
 .master-list {
   display: grid;
   gap: 8px;
+}
+
+.master-empty {
+  margin: 0;
+  padding: 12px 0;
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .empty-state {
