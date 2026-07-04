@@ -28,6 +28,8 @@ const elements = {
   masterList: document.querySelector("#master-list"),
   categoryFilter: document.querySelector("#category-filter"),
   resetButton: document.querySelector("#reset-button"),
+  copyPreviousButton: document.querySelector("#copy-previous-button"),
+  copyPreviousStatus: document.querySelector("#copy-previous-status"),
   exportButton: document.querySelector("#export-button"),
   importInput: document.querySelector("#import-input"),
   backupStatus: document.querySelector("#backup-status"),
@@ -243,6 +245,8 @@ function bindEvents() {
 
   elements.addBatchRow.addEventListener("click", appendBatchRow);
 
+  elements.copyPreviousButton.addEventListener("click", copyPreviousMeal);
+
   elements.batchRows.addEventListener("click", (event) => {
     const button = event.target.closest("[data-remove-batch-row]");
     if (!button) return;
@@ -361,6 +365,61 @@ function getBatchEntries() {
 
 function clearBatchRows() {
   renderBatchRows(INITIAL_BATCH_ROW_COUNT);
+}
+
+function findPreviousMealEntries(mealId) {
+  const candidates = memoryStore
+    .getAllEntries()
+    .filter((entry) => entry.meal === mealId && entry.date !== todayKey && foodById.has(entry.foodId));
+
+  if (candidates.length === 0) return { date: null, entries: [] };
+
+  const mostRecentDate = candidates.reduce(
+    (latest, entry) => (entry.date > latest ? entry.date : latest),
+    candidates[0].date,
+  );
+
+  const entries = candidates
+    .filter((entry) => entry.date === mostRecentDate)
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+  return { date: mostRecentDate, entries };
+}
+
+function setCopyPreviousStatus(text) {
+  if (elements.copyPreviousStatus) {
+    elements.copyPreviousStatus.textContent = text;
+  }
+}
+
+function copyPreviousMeal() {
+  const mealId = new FormData(elements.form).get("meal") || "morning";
+  const mealLabel = MEALS.find((meal) => meal.id === mealId)?.label ?? "";
+  const { date, entries } = findPreviousMealEntries(mealId);
+
+  if (entries.length === 0) {
+    setCopyPreviousStatus(`前回の${mealLabel}の記録が見つかりませんでした。`);
+    return;
+  }
+
+  renderBatchRows(Math.max(entries.length, MIN_BATCH_ROW_COUNT));
+
+  getBatchRowElements().forEach((row, index) => {
+    const entry = entries[index];
+    if (!entry) return;
+
+    const foodSelect = row.querySelector(".batch-food-select");
+    const amountInput = row.querySelector(".batch-amount-input");
+    const unitSelect = row.querySelector(".batch-unit-select");
+
+    foodSelect.value = entry.foodId;
+    unitSelect.value = entry.inputUnit || "g";
+    unitSelect.dataset.currentUnit = unitSelect.value;
+    updateAmountInputForUnit(row);
+    amountInput.value = entry.inputAmount ?? entry.amount;
+  });
+
+  setCopyPreviousStatus(`前回の${mealLabel}（${formatShortDate(date)}）から${entries.length}品をコピーしました。`);
 }
 
 function convertAmountInputUnit(row, unitSelect) {
