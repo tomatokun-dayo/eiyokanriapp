@@ -388,7 +388,7 @@ function clearBatchRows() {
 function findPreviousMealEntries(mealId) {
   const candidates = memoryStore
     .getAllEntries()
-    .filter((entry) => entry.meal === mealId && entry.date !== todayKey && foodById.has(entry.foodId));
+    .filter((entry) => entry.meal === mealId && foodById.has(entry.foodId));
 
   if (candidates.length === 0) return { date: null, entries: [] };
 
