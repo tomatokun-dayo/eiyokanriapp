@@ -30,6 +30,9 @@ const elements = {
   resetButton: document.querySelector("#reset-button"),
   copyPreviousButton: document.querySelector("#copy-previous-button"),
   copyPreviousStatus: document.querySelector("#copy-previous-status"),
+  mealTemplatesList: document.querySelector("#meal-templates-list"),
+  saveTemplateButton: document.querySelector("#save-template-button"),
+  mealTemplatesStatus: document.querySelector("#meal-templates-status"),
   exportButton: document.querySelector("#export-button"),
   importInput: document.querySelector("#import-input"),
   backupStatus: document.querySelector("#backup-status"),
@@ -61,6 +64,7 @@ function init() {
   applyStoredFoodStates();
   renderFormOptions();
   renderCategoryFilter();
+  renderMealTemplates();
   bindEvents();
   render();
 }
@@ -247,6 +251,8 @@ function bindEvents() {
 
   elements.copyPreviousButton.addEventListener("click", copyPreviousMeal);
 
+  elements.saveTemplateButton.addEventListener("click", saveMealTemplateFromBatch);
+
   elements.batchRows.addEventListener("click", (event) => {
     const button = event.target.closest("[data-remove-batch-row]");
     if (!button) return;
@@ -392,6 +398,25 @@ function setCopyPreviousStatus(text) {
   }
 }
 
+function fillBatchRowsFromItems(items) {
+  renderBatchRows(Math.max(items.length, MIN_BATCH_ROW_COUNT));
+
+  getBatchRowElements().forEach((row, index) => {
+    const item = items[index];
+    if (!item) return;
+
+    const foodSelect = row.querySelector(".batch-food-select");
+    const amountInput = row.querySelector(".batch-amount-input");
+    const unitSelect = row.querySelector(".batch-unit-select");
+
+    foodSelect.value = item.foodId;
+    unitSelect.value = item.unit || "g";
+    unitSelect.dataset.currentUnit = unitSelect.value;
+    updateAmountInputForUnit(row);
+    amountInput.value = item.amount;
+  });
+}
+
 function copyPreviousMeal() {
   const mealId = new FormData(elements.form).get("meal") || "morning";
   const mealLabel = MEALS.find((meal) => meal.id === mealId)?.label ?? "";
@@ -402,24 +427,95 @@ function copyPreviousMeal() {
     return;
   }
 
-  renderBatchRows(Math.max(entries.length, MIN_BATCH_ROW_COUNT));
-
-  getBatchRowElements().forEach((row, index) => {
-    const entry = entries[index];
-    if (!entry) return;
-
-    const foodSelect = row.querySelector(".batch-food-select");
-    const amountInput = row.querySelector(".batch-amount-input");
-    const unitSelect = row.querySelector(".batch-unit-select");
-
-    foodSelect.value = entry.foodId;
-    unitSelect.value = entry.inputUnit || "g";
-    unitSelect.dataset.currentUnit = unitSelect.value;
-    updateAmountInputForUnit(row);
-    amountInput.value = entry.inputAmount ?? entry.amount;
-  });
+  fillBatchRowsFromItems(
+    entries.map((entry) => ({
+      foodId: entry.foodId,
+      amount: entry.inputAmount ?? entry.amount,
+      unit: entry.inputUnit || "g",
+    })),
+  );
 
   setCopyPreviousStatus(`前回の${mealLabel}（${formatShortDate(date)}）から${entries.length}品をコピーしました。`);
+}
+
+function setTemplateStatus(text) {
+  if (elements.mealTemplatesStatus) {
+    elements.mealTemplatesStatus.textContent = text;
+  }
+}
+
+function saveMealTemplateFromBatch() {
+  const rows = getBatchEntries();
+
+  if (rows.length === 0) {
+    setTemplateStatus("食材を入力してから保存してください。");
+    return;
+  }
+
+  const rawName = window.prompt("献立セットの名前を入力してください", "");
+  if (rawName === null) return;
+
+  const name = rawName.trim();
+  if (!name) {
+    setTemplateStatus("名前を入力してください。");
+    return;
+  }
+
+  const template = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    name,
+    items: rows.map((row) => ({ foodId: row.foodId, amount: row.amount, unit: row.unit })),
+  };
+
+  mealTemplateStore.addTemplate(template);
+  renderMealTemplates();
+  setTemplateStatus(`「${template.name}」を保存しました。`);
+}
+
+function applyMealTemplate(template) {
+  fillBatchRowsFromItems(template.items);
+  setTemplateStatus(`「${template.name}」を反映しました。`);
+}
+
+function renderMealTemplates() {
+  const container = elements.mealTemplatesList;
+  if (!container) return;
+
+  const templates = mealTemplateStore.getAllTemplates();
+  container.replaceChildren();
+
+  if (templates.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "meal-templates-empty";
+    empty.textContent = "献立セットはまだありません。";
+    container.appendChild(empty);
+    return;
+  }
+
+  for (const template of templates) {
+    const chip = document.createElement("span");
+    chip.className = "meal-template-chip";
+
+    const applyButton = document.createElement("button");
+    applyButton.type = "button";
+    applyButton.className = "meal-template-apply";
+    applyButton.textContent = template.name;
+    applyButton.addEventListener("click", () => applyMealTemplate(template));
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "meal-template-remove";
+    removeButton.setAttribute("aria-label", `${template.name}を削除`);
+    removeButton.textContent = "×";
+    removeButton.addEventListener("click", () => {
+      mealTemplateStore.removeTemplate(template.id);
+      renderMealTemplates();
+      setTemplateStatus(`「${template.name}」を削除しました。`);
+    });
+
+    chip.append(applyButton, removeButton);
+    container.appendChild(chip);
+  }
 }
 
 function convertAmountInputUnit(row, unitSelect) {
@@ -734,6 +830,7 @@ function exportBackup() {
     entries: memoryStore.getAllEntries(),
     foodStates: { ...foodStateOverrides },
     milk: milkStore.getAllFeeds(),
+    mealTemplates: mealTemplateStore.getAllTemplates(),
   };
 
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -754,6 +851,26 @@ function isValidBackupEntry(entry) {
     typeof entry.foodId === "string" &&
     Number.isFinite(entry.amount) &&
     typeof entry.date === "string"
+  );
+}
+
+function isValidBackupTemplate(template) {
+  return (
+    template !== null &&
+    typeof template === "object" &&
+    typeof template.id === "string" &&
+    typeof template.name === "string" &&
+    template.name.length > 0 &&
+    Array.isArray(template.items) &&
+    template.items.length > 0 &&
+    template.items.every(
+      (item) =>
+        item !== null &&
+        typeof item === "object" &&
+        typeof item.foodId === "string" &&
+        Number.isFinite(item.amount) &&
+        typeof item.unit === "string",
+    )
   );
 }
 
@@ -816,8 +933,16 @@ function importBackup(file) {
       : [];
     milkStore.replaceAllFeeds(milkFeeds);
 
+    const mealTemplates = Array.isArray(payload.mealTemplates)
+      ? payload.mealTemplates.filter(isValidBackupTemplate)
+      : [];
+    mealTemplateStore.replaceAllTemplates(mealTemplates);
+    renderMealTemplates();
+
     render();
-    setBackupStatus(`読み込みました（記録 ${entries.length}件・ミルク ${milkFeeds.length}件）。`);
+    setBackupStatus(
+      `読み込みました（記録 ${entries.length}件・ミルク ${milkFeeds.length}件・献立セット ${mealTemplates.length}件）。`,
+    );
   };
 
   reader.readAsText(file);

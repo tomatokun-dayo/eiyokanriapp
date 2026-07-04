@@ -1,6 +1,7 @@
 const ENTRY_STORAGE_KEY = "eiyokanri.entries.v1";
 const MILK_STORAGE_KEY = "eiyokanri.milk.v1";
 const FOOD_STATE_STORAGE_KEY = "eiyokanri.foodStates.v1";
+const MEAL_TEMPLATE_STORAGE_KEY = "eiyokanri.mealTemplates.v1";
 const BACKUP_VERSION = 1;
 
 const FOOD_STATES = [
@@ -144,6 +145,50 @@ function createMilkStore() {
 function loadStoredMilkFeeds() {
   try {
     const stored = window.localStorage.getItem(MILK_STORAGE_KEY);
+    if (!stored) return [];
+
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+const mealTemplateStore = createMealTemplateStore();
+
+function createMealTemplateStore() {
+  let templates = loadStoredMealTemplates();
+
+  function persistTemplates() {
+    try {
+      window.localStorage.setItem(MEAL_TEMPLATE_STORAGE_KEY, JSON.stringify(templates));
+    } catch (error) {
+      // Keep the in-memory store usable when localStorage is blocked or full.
+    }
+  }
+
+  return {
+    getAllTemplates() {
+      return [...templates];
+    },
+    addTemplate(template) {
+      templates = [template, ...templates];
+      persistTemplates();
+    },
+    removeTemplate(id) {
+      templates = templates.filter((template) => template.id !== id);
+      persistTemplates();
+    },
+    replaceAllTemplates(newTemplates) {
+      templates = [...newTemplates];
+      persistTemplates();
+    },
+  };
+}
+
+function loadStoredMealTemplates() {
+  try {
+    const stored = window.localStorage.getItem(MEAL_TEMPLATE_STORAGE_KEY);
     if (!stored) return [];
 
     const parsed = JSON.parse(stored);
