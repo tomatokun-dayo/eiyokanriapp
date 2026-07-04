@@ -1,1 +1,5 @@
 .DS_Store
+
+# アプリからエクスポートした記録データ（個人情報）は絶対にコミットしない
+eiyokanri-backup-*.json
+*-backup-*.json
