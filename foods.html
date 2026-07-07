@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>食材管理 | 離乳食栄養メモ</title>
+    <meta name="theme-color" content="#24786a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="離乳食メモ" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <p class="eyebrow">しょくざい</p>
+            <h1>食材管理</h1>
+          </div>
+        </div>
+      </header>
+
+      <nav class="page-nav" aria-label="ページ切り替え">
+        <a class="page-nav-link" href="./">📝 記録</a>
+        <a class="page-nav-link" href="foods.html" aria-current="page">🥕 食材</a>
+      </nav>
+
+      <main class="workspace">
+        <section class="panel foods-panel" aria-labelledby="my-foods-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">マイ食材</p>
+              <h2 id="my-foods-title">使える食材</h2>
+            </div>
+            <div class="score-pill">
+              <span id="my-food-count">0</span>
+              <small>品</small>
+            </div>
+          </div>
+          <p class="foods-note">
+            記録ページの食材リストに出る食材です。状態を「未導入」「避ける」にすると、提案の候補から外れます。
+          </p>
+          <div class="master-controls">
+            <label class="compact-filter">
+              <span>分類</span>
+              <select id="category-filter">
+                <option value="all">すべて</option>
+              </select>
+            </label>
+            <input
+              class="master-search-input"
+              id="master-search"
+              type="search"
+              placeholder="マイ食材を検索"
+              aria-label="マイ食材を検索"
+              autocomplete="off"
+            />
+          </div>
+          <div class="master-list" id="master-list"></div>
+        </section>
+
+        <section class="panel backup-panel" aria-labelledby="backup-title">
+          <details class="panel-details" id="backup-details">
+            <summary>
+              <span class="eyebrow">バックアップ</span>
+              <h2 id="backup-title">データ管理</h2>
+            </summary>
+            <div class="panel-details-body">
+              <p class="backup-note">
+                記録はこの端末のブラウザ内にのみ保存されます。機種変更やブラウザの変更に備えて、ときどき書き出しておくと安心です。
+              </p>
+              <div class="backup-actions">
+                <button class="ghost-button" id="export-button" type="button">JSONで書き出す</button>
+                <label class="ghost-button backup-import">
+                  読み込む
+                  <input id="import-input" type="file" accept=".json,application/json" hidden />
+                </label>
+              </div>
+              <p class="backup-status" id="backup-status" role="status"></p>
+            </div>
+          </details>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <p class="disclaimer">
+          このアプリの目安は家庭内の参考情報で、医療・栄養指導の代替ではありません。気になることがあれば、かかりつけ医や保健師にご相談ください。
+        </p>
+        <p class="footer-links">
+          <span>参考</span>
+          <a
+            href="https://fooddb.mext.go.jp/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            文部科学省 食品成分データベース
+          </a>
+        </p>
+      </footer>
+    </div>
+
+    <script src="data/food-master.js" defer></script>
+    <script src="data/age-targets.js" defer></script>
+    <script src="logic/nutrition.js" defer></script>
+    <script src="logic/units.js" defer></script>
+    <script src="store.js" defer></script>
+    <script src="foods.js" defer></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("sw.js").catch(() => {
+            // オフライン化に失敗しても通常のWebページとして動作する
+          });
+        });
+      }
+    </script>
+  </body>
+</html>

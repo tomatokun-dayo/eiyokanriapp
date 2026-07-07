@@ -28,6 +28,9 @@ function addDays(date, amount) {
   return next;
 }
 
+// 「今日」の基準日。記録ページでは描画のたびに syncToday() が再計算する。
+let todayKey = toDateKey(new Date());
+
 function createEntry({ foodId, amount, meal, inputAmount = amount, inputUnit = "g", createdAt = new Date() }) {
   return {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,

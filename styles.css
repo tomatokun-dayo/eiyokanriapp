@@ -159,8 +159,58 @@ h2 {
   box-shadow: var(--shadow);
 }
 
+.page-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.page-nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 20px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.page-nav-link[aria-current="page"] {
+  border-color: var(--teal);
+  background: var(--teal);
+  color: white;
+}
+
+.page-nav-link:hover:not([aria-current="page"]),
+.page-nav-link:focus-visible:not([aria-current="page"]) {
+  border-color: rgba(36, 120, 106, 0.45);
+  box-shadow: 0 0 0 3px rgba(36, 120, 106, 0.1);
+}
+
 .summary-panel {
   grid-column: span 12;
+}
+
+.foods-panel {
+  grid-column: span 12;
+}
+
+.foods-note {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.master-info {
+  display: grid;
+  gap: 4px;
+  padding: 2px;
 }
 
 .summary-head .eyebrow {
@@ -1326,6 +1376,7 @@ h2 {
   .totals-panel,
   .suggestions-panel,
   .master-panel,
+  .foods-panel,
   .chart-panel,
   .log-panel,
   .backup-panel,
