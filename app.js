@@ -784,12 +784,28 @@ function renderLog(entries) {
   elements.logList.innerHTML = entries
     .map((entry) => {
       const food = foodById.get(entry.foodId);
-      if (!food) return "";
       const meal = MEALS.find((item) => item.id === entry.meal);
       const time = new Intl.DateTimeFormat("ja-JP", {
         hour: "2-digit",
         minute: "2-digit",
       }).format(new Date(entry.createdAt));
+
+      // 食材ページで削除された食材の過去記録。名前を出して削除だけできるようにする。
+      if (!food) {
+        return `
+        <article class="log-item">
+          <div>
+            <div class="log-title">
+              <span>（削除された食材）</span>
+              <span class="meal-badge">${meal?.label ?? ""}</span>
+            </div>
+            <div class="log-meta">${formatEntryAmount(entry)} / ${time}</div>
+          </div>
+          <button class="delete-button" type="button" data-remove-entry="${entry.id}">削除</button>
+        </article>
+      `;
+      }
+
       const energy = (food.per100.energy * entry.amount) / 100;
       const protein = (food.per100.protein * entry.amount) / 100;
 
