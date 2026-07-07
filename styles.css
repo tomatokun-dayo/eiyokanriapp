@@ -213,6 +213,101 @@ h2 {
   padding: 2px;
 }
 
+.db-panel,
+.custom-panel {
+  grid-column: span 12;
+}
+
+.db-status {
+  min-height: 1.2em;
+  margin: 0 0 8px;
+  color: var(--teal-dark);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.db-results {
+  display: grid;
+  gap: 6px;
+}
+
+.db-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.db-item-info {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.db-item-name {
+  font-weight: 800;
+}
+
+.db-item-meta {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.db-add {
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+.custom-food-form {
+  display: grid;
+  gap: 12px;
+}
+
+.custom-field {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.custom-field input,
+.custom-field select {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.custom-nutrients {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.custom-status {
+  min-height: 1.2em;
+  margin: 0;
+  color: var(--teal-dark);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.master-remove {
+  justify-self: start;
+}
+
 .summary-head .eyebrow {
   margin-bottom: 10px;
 }
@@ -1377,6 +1472,8 @@ h2 {
   .suggestions-panel,
   .master-panel,
   .foods-panel,
+  .db-panel,
+  .custom-panel,
   .chart-panel,
   .log-panel,
   .backup-panel,
@@ -1386,6 +1483,10 @@ h2 {
 
   .panel {
     padding: 14px;
+  }
+
+  .custom-nutrients {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .panel-heading {

@@ -784,6 +784,7 @@ function renderLog(entries) {
   elements.logList.innerHTML = entries
     .map((entry) => {
       const food = foodById.get(entry.foodId);
+      if (!food) return "";
       const meal = MEALS.find((item) => item.id === entry.meal);
       const time = new Intl.DateTimeFormat("ja-JP", {
         hour: "2-digit",

@@ -63,6 +63,87 @@
           <div class="master-list" id="master-list"></div>
         </section>
 
+        <section class="panel db-panel" aria-labelledby="db-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">全食品から探す</p>
+              <h2 id="db-title">食品データベース</h2>
+            </div>
+          </div>
+          <p class="foods-note">
+            日本食品標準成分表の約2,500品から探して、マイ食材に追加できます。栄養値は自動で入ります。
+          </p>
+          <input
+            class="master-search-input"
+            id="db-search"
+            type="search"
+            placeholder="食品名で検索（例: 納豆）"
+            aria-label="食品データベースを検索"
+            autocomplete="off"
+          />
+          <p class="db-status" id="db-status" role="status"></p>
+          <div class="db-results" id="db-results"></div>
+        </section>
+
+        <section class="panel custom-panel" aria-labelledby="custom-title">
+          <details class="panel-details" id="custom-details">
+            <summary>
+              <span class="eyebrow">手入力</span>
+              <h2 id="custom-title">市販品などを手入力で追加</h2>
+            </summary>
+            <div class="panel-details-body">
+              <p class="foods-note">
+                市販のベビーフードなど、データベースにない食品はパッケージの栄養成分表示（100gあたり）を写して追加できます。
+              </p>
+              <form class="custom-food-form" id="custom-food-form">
+                <label class="custom-field">
+                  <span>名前</span>
+                  <input id="custom-name" type="text" required placeholder="例: ○○社 鶏レバーペースト" />
+                </label>
+                <label class="custom-field">
+                  <span>分類</span>
+                  <select id="custom-category">
+                    <option value="主食">主食</option>
+                    <option value="野菜">野菜</option>
+                    <option value="たんぱく" selected>たんぱく</option>
+                    <option value="果物">果物</option>
+                    <option value="乳製品">乳製品</option>
+                    <option value="その他">その他</option>
+                  </select>
+                </label>
+                <div class="custom-nutrients">
+                  <label class="custom-field">
+                    <span>エネルギー (kcal)</span>
+                    <input id="custom-energy" type="number" min="0" step="1" required placeholder="0" />
+                  </label>
+                  <label class="custom-field">
+                    <span>たんぱく質 (g)</span>
+                    <input id="custom-protein" type="number" min="0" step="0.1" placeholder="0" />
+                  </label>
+                  <label class="custom-field">
+                    <span>脂質 (g)</span>
+                    <input id="custom-fat" type="number" min="0" step="0.1" placeholder="0" />
+                  </label>
+                  <label class="custom-field">
+                    <span>炭水化物 (g)</span>
+                    <input id="custom-carbs" type="number" min="0" step="0.1" placeholder="0" />
+                  </label>
+                  <label class="custom-field">
+                    <span>鉄 (mg)</span>
+                    <input id="custom-iron" type="number" min="0" step="0.1" placeholder="0" />
+                  </label>
+                  <label class="custom-field">
+                    <span>カルシウム (mg)</span>
+                    <input id="custom-calcium" type="number" min="0" step="1" placeholder="0" />
+                  </label>
+                </div>
+                <button class="primary-button" type="submit">マイ食材に追加</button>
+                <p class="custom-status" id="custom-status" role="status"></p>
+              </form>
+            </div>
+          </details>
+        </section>
+
         <section class="panel backup-panel" aria-labelledby="backup-title">
           <details class="panel-details" id="backup-details">
             <summary>
@@ -104,7 +185,9 @@
     </div>
 
     <script src="data/food-master.js" defer></script>
+    <script src="custom-foods.js" defer></script>
     <script src="data/age-targets.js" defer></script>
+    <script src="data/fooddb.js" defer></script>
     <script src="logic/nutrition.js" defer></script>
     <script src="logic/units.js" defer></script>
     <script src="store.js" defer></script>

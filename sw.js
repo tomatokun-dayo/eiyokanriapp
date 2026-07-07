@@ -1,6 +1,6 @@
 // アプリシェルのキャッシュ。ファイル更新時は CACHE_VERSION を上げると、
 // activate で古いキャッシュを破棄して自動的に入れ替わる。
-const CACHE_VERSION = "eiyokanri-v2";
+const CACHE_VERSION = "eiyokanri-v3";
 
 const APP_SHELL = [
   "./",
@@ -9,12 +9,14 @@ const APP_SHELL = [
   "styles.css",
   "app.js",
   "foods.js",
+  "custom-foods.js",
   "store.js",
   "logic/units.js",
   "logic/nutrition.js",
   "logic/suggestions.js",
   "data/food-master.js",
   "data/age-targets.js",
+  "data/fooddb.js",
   "manifest.json",
   "icons/icon-192.png",
   "icons/icon-512.png",
