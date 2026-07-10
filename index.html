@@ -67,6 +67,20 @@
               <p class="copy-previous-status" id="copy-previous-status" role="status"></p>
             </div>
 
+            <details class="memo-import" id="memo-details">
+              <summary>メモから入力（他アプリのコピペ）</summary>
+              <div class="memo-import-body">
+                <textarea
+                  id="memo-input"
+                  rows="4"
+                  placeholder="1行に1品ずつ貼り付け&#10;例:&#10;10倍がゆ50g&#10;卵黄15g&#10;にんじん小さじ1"
+                  aria-label="食事メモの貼り付け"
+                ></textarea>
+                <button class="ghost-button" id="memo-apply" type="button">食材にセット</button>
+                <p class="memo-status" id="memo-status" role="status"></p>
+              </div>
+            </details>
+
             <div class="batch-rows" id="batch-rows" aria-label="一食分の食材"></div>
 
             <button class="add-row-button" id="add-batch-row" type="button">＋食材を追加</button>
@@ -196,6 +210,7 @@
     <script src="logic/nutrition.js" defer></script>
     <script src="logic/suggestions.js" defer></script>
     <script src="logic/units.js" defer></script>
+    <script src="logic/memo.js" defer></script>
     <script src="store.js" defer></script>
     <script src="app.js" defer></script>
     <script>

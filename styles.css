@@ -814,6 +814,60 @@ h2 {
   line-height: 1.5;
 }
 
+.memo-import > summary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--teal-dark);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.memo-import > summary::-webkit-details-marker {
+  display: none;
+}
+
+.memo-import > summary::before {
+  content: "▸ ";
+}
+
+.memo-import[open] > summary::before {
+  content: "▾ ";
+}
+
+.memo-import-body {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.memo-import-body textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.memo-import-body .ghost-button {
+  width: 100%;
+  min-height: 40px;
+}
+
+.memo-status {
+  min-height: 1.2em;
+  margin: 0;
+  color: var(--teal-dark);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 .quick-picks {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

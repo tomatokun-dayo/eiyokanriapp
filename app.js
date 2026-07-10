@@ -31,6 +31,10 @@ const elements = {
   resetButton: document.querySelector("#reset-button"),
   copyPreviousButton: document.querySelector("#copy-previous-button"),
   copyPreviousStatus: document.querySelector("#copy-previous-status"),
+  memoDetails: document.querySelector("#memo-details"),
+  memoInput: document.querySelector("#memo-input"),
+  memoApply: document.querySelector("#memo-apply"),
+  memoStatus: document.querySelector("#memo-status"),
   mealTemplatesList: document.querySelector("#meal-templates-list"),
   saveTemplateButton: document.querySelector("#save-template-button"),
   mealTemplatesStatus: document.querySelector("#meal-templates-status"),
@@ -243,6 +247,8 @@ function bindEvents() {
 
   elements.copyPreviousButton.addEventListener("click", copyPreviousMeal);
 
+  elements.memoApply.addEventListener("click", applyMemo);
+
   elements.saveTemplateButton.addEventListener("click", saveMealTemplateFromBatch);
 
   elements.batchRows.addEventListener("click", (event) => {
@@ -418,6 +424,50 @@ function copyPreviousMeal() {
   );
 
   setCopyPreviousStatus(`前回の${mealLabel}（${formatShortDate(date)}）から${entries.length}品をコピーしました。`);
+}
+
+function setMemoStatus(text) {
+  if (elements.memoStatus) {
+    elements.memoStatus.textContent = text;
+  }
+}
+
+function applyMemo() {
+  const text = elements.memoInput?.value ?? "";
+  if (!text.trim()) {
+    setMemoStatus("メモを貼り付けてから押してください。");
+    return;
+  }
+
+  const { items, milkMl, unmatched } = parseMealMemo(text, FOOD_MASTER);
+
+  if (items.length === 0 && milkMl === null) {
+    setMemoStatus("マイ食材に一致する行が見つかりませんでした。食材ページで食材を追加すると認識できます。");
+    return;
+  }
+
+  if (items.length > 0) {
+    fillBatchRowsFromItems(
+      items.map((item) => {
+        const food = foodById.get(item.foodId);
+        const amount = item.amount ?? food?.defaultAmount ?? "";
+        return { foodId: item.foodId, amount, unit: item.unit || "g" };
+      }),
+    );
+  }
+
+  if (milkMl !== null && Number.isFinite(milkMl) && milkMl > 0) {
+    elements.milkInput.value = String(milkMl);
+  }
+
+  const parts = [];
+  if (items.length > 0) parts.push(`${items.length}品を食材にセット`);
+  if (milkMl !== null) parts.push(`ミルク${milkMl}mlを下書き`);
+  let message = `${parts.join("・")}しました。内容を確認して「一食分を追加」を押してください。`;
+  if (unmatched.length > 0) {
+    message += ` 認識できなかった行: ${unmatched.join(" / ")}`;
+  }
+  setMemoStatus(message);
 }
 
 function setTemplateStatus(text) {

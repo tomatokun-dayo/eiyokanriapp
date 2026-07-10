@@ -26,3 +26,8 @@ function formatPlainNumber(value) {
     .toFixed(1)
     .replace(/\.0$/, "");
 }
+
+// ひらがな→カタカナに寄せて、表記ゆれを吸収した部分一致にする
+function foldKana(text) {
+  return text.replace(/[ぁ-ゖ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) + 0x60));
+}

@@ -77,11 +77,6 @@ function bindEvents() {
   });
 }
 
-// ひらがな→カタカナに寄せて、表記ゆれを吸収した部分一致にする
-function foldKana(text) {
-  return text.replace(/[ぁ-ゖ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) + 0x60));
-}
-
 // 成分表の表記に合わせるための言い換え（かな入力 → 成分表でよく使われる表記）
 const DB_QUERY_ALIASES = {
   とうふ: "豆腐",
