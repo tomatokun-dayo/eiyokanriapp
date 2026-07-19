@@ -64,6 +64,7 @@ function addCustomFood(food) {
   FOOD_MASTER.push(food);
   registerFoodIndexes(food);
   persistCustomFoods();
+  if (typeof notifySyncChange === "function") notifySyncChange("customFoods", food.id, food);
   return true;
 }
 
@@ -77,6 +78,7 @@ function removeCustomFood(foodId) {
   if (typeof foodById !== "undefined") foodById.delete(foodId);
   if (typeof defaultFoodStates !== "undefined") defaultFoodStates.delete(foodId);
   persistCustomFoods();
+  if (typeof notifySyncChange === "function") notifySyncChange("customFoods", foodId, null);
   return true;
 }
 

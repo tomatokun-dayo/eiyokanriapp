@@ -15,6 +15,12 @@ const foodStateByKey = new Map(FOOD_STATES.map((state) => [state.key, state]));
 const foodStateOverrides = loadStoredFoodStates();
 const defaultFoodStates = new Map(FOOD_MASTER.map((food) => [food.id, food.state]));
 
+// 同期エンジン（sync.js）が読み込まれていれば変更を通知する。
+// 未読込・未設定なら無害な no-op（ローカル専用アプリとして動作）。
+function emitSync(store, id, data) {
+  if (typeof notifySyncChange === "function") notifySyncChange(store, id, data);
+}
+
 function toDateKey(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -70,18 +76,23 @@ function createMemoryStore() {
     addEntry(entry) {
       entries = [entry, ...entries];
       persistEntries();
+      emitSync("entries", entry.id, entry);
     },
     addEntries(newEntries) {
       entries = [...newEntries, ...entries];
       persistEntries();
+      for (const entry of newEntries) emitSync("entries", entry.id, entry);
     },
     removeEntry(id) {
       entries = entries.filter((entry) => entry.id !== id);
       persistEntries();
+      emitSync("entries", id, null);
     },
     resetToday() {
+      const removed = entries.filter((entry) => entry.date === todayKey);
       entries = entries.filter((entry) => entry.date !== todayKey);
       persistEntries();
+      for (const entry of removed) emitSync("entries", entry.id, null);
     },
     replaceAllEntries(newEntries) {
       entries = [...newEntries];
@@ -124,20 +135,20 @@ function createMilkStore() {
     },
     addFeed(ml) {
       const createdAt = new Date();
-      feeds = [
-        {
-          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-          ml,
-          date: toDateKey(createdAt),
-          createdAt: createdAt.toISOString(),
-        },
-        ...feeds,
-      ];
+      const feed = {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        ml,
+        date: toDateKey(createdAt),
+        createdAt: createdAt.toISOString(),
+      };
+      feeds = [feed, ...feeds];
       persistFeeds();
+      emitSync("milk", feed.id, feed);
     },
     removeFeed(id) {
       feeds = feeds.filter((feed) => feed.id !== id);
       persistFeeds();
+      emitSync("milk", id, null);
     },
     replaceAllFeeds(newFeeds) {
       feeds = [...newFeeds];
@@ -178,10 +189,12 @@ function createMealTemplateStore() {
     addTemplate(template) {
       templates = [template, ...templates];
       persistTemplates();
+      emitSync("mealTemplates", template.id, template);
     },
     removeTemplate(id) {
       templates = templates.filter((template) => template.id !== id);
       persistTemplates();
+      emitSync("mealTemplates", id, null);
     },
     replaceAllTemplates(newTemplates) {
       templates = [...newTemplates];
@@ -225,6 +238,7 @@ function createFoodPreferenceStore() {
     remember(foodId, unit, amount) {
       preferences[foodId] = { unit, amount };
       persistPreferences();
+      emitSync("foodPrefs", foodId, { unit, amount });
     },
     replaceAllPreferences(nextPreferences) {
       preferences = { ...nextPreferences };
@@ -277,5 +291,6 @@ function setFoodState(foodId, stateKey) {
   food.state = stateKey;
   foodStateOverrides[foodId] = stateKey;
   persistFoodStates();
+  emitSync("foodStates", foodId, { state: stateKey });
   render();
 }

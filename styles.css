@@ -434,6 +434,50 @@ h2 {
   grid-column: span 12;
 }
 
+.sync-panel {
+  grid-column: span 12;
+}
+
+.sync-note {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.sync-user {
+  margin: 0 0 10px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.sync-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sync-status {
+  margin: 12px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  min-height: 1.2em;
+}
+
+.sync-status[data-state="ok"] {
+  color: #24786a;
+}
+
+.sync-status[data-state="error"] {
+  color: #da6f50;
+}
+
+.sync-status[data-state="syncing"],
+.sync-status[data-state="pending"],
+.sync-status[data-state="offline"] {
+  color: #d99f32;
+}
+
 .milk-panel {
   grid-column: span 4;
 }
@@ -1492,6 +1536,7 @@ h2 {
   .chart-panel,
   .suggestions-panel,
   .summary-panel,
+  .sync-panel,
   .backup-panel {
     grid-column: span 12;
   }
@@ -1530,6 +1575,7 @@ h2 {
   .custom-panel,
   .chart-panel,
   .log-panel,
+  .sync-panel,
   .backup-panel,
   .milk-panel {
     grid-column: auto;

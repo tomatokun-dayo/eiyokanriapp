@@ -13,6 +13,14 @@ const elements = {
   exportButton: document.querySelector("#export-button"),
   importInput: document.querySelector("#import-input"),
   backupStatus: document.querySelector("#backup-status"),
+  syncPanel: document.querySelector("#sync-panel"),
+  syncSignedOut: document.querySelector("#sync-signed-out"),
+  syncSignedIn: document.querySelector("#sync-signed-in"),
+  syncUser: document.querySelector("#sync-user"),
+  syncLogin: document.querySelector("#sync-login"),
+  syncLogout: document.querySelector("#sync-logout"),
+  syncNowButton: document.querySelector("#sync-now"),
+  syncStatus: document.querySelector("#sync-status"),
 };
 
 // 成分表の食品群コード → アプリの分類
@@ -35,6 +43,36 @@ function init() {
   renderCategoryFilter();
   bindEvents();
   render();
+  initSync();
+}
+
+// 同期パネル（Supabase接続情報がある場合のみ表示）
+function initSync() {
+  if (!window.EiyoSync || !EiyoSync.CONFIGURED || !elements.syncPanel) return;
+
+  EiyoSync.init();
+  elements.syncPanel.hidden = false;
+
+  elements.syncLogin.addEventListener("click", () => EiyoSync.signIn());
+  elements.syncLogout.addEventListener("click", () => EiyoSync.signOut());
+  elements.syncNowButton.addEventListener("click", () => EiyoSync.syncNow());
+
+  EiyoSync.onAuth((user) => {
+    const loggedIn = Boolean(user);
+    elements.syncSignedIn.hidden = !loggedIn;
+    elements.syncSignedOut.hidden = loggedIn;
+    if (user) elements.syncUser.textContent = `ログイン中: ${user.email}`;
+  });
+
+  EiyoSync.onStatus((status) => {
+    elements.syncStatus.textContent = status.message || "";
+    if (status.state) elements.syncStatus.dataset.state = status.state;
+  });
+
+  // ログイン済みならページを開いた時点で一度同期する。
+  EiyoSync.getUser().then((user) => {
+    if (user) EiyoSync.syncNow();
+  });
 }
 
 function render() {

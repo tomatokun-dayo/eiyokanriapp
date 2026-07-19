@@ -144,6 +144,31 @@
           </details>
         </section>
 
+        <section class="panel sync-panel" id="sync-panel" aria-labelledby="sync-title" hidden>
+          <details class="panel-details" id="sync-details">
+            <summary>
+              <span class="eyebrow">同期</span>
+              <h2 id="sync-title">夫婦で共有</h2>
+            </summary>
+            <div class="panel-details-body">
+              <p class="sync-note">
+                ログインすると、記録がもう一方の端末とも共有されます。データは自分たちのSupabaseプロジェクトにのみ保存されます。
+              </p>
+              <div class="sync-signed-out" id="sync-signed-out" hidden>
+                <button class="primary-button" id="sync-login" type="button">Googleでログイン</button>
+              </div>
+              <div class="sync-signed-in" id="sync-signed-in" hidden>
+                <p class="sync-user" id="sync-user"></p>
+                <div class="sync-actions">
+                  <button class="ghost-button" id="sync-now" type="button">今すぐ同期</button>
+                  <button class="ghost-button" id="sync-logout" type="button">ログアウト</button>
+                </div>
+              </div>
+              <p class="sync-status" id="sync-status" role="status"></p>
+            </div>
+          </details>
+        </section>
+
         <section class="panel backup-panel" aria-labelledby="backup-title">
           <details class="panel-details" id="backup-details">
             <summary>
@@ -191,6 +216,9 @@
     <script src="logic/nutrition.js" defer></script>
     <script src="logic/units.js" defer></script>
     <script src="store.js" defer></script>
+    <script src="sync-config.js" defer></script>
+    <script src="vendor/supabase.js" defer></script>
+    <script src="sync.js" defer></script>
     <script src="foods.js" defer></script>
     <script>
       if ("serviceWorker" in navigator) {
