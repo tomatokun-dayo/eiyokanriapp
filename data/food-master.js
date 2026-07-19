@@ -55,6 +55,44 @@ window.FOOD_MASTER = [
     },
     per100: { energy: 65, protein: 1.1, fat: 0.1, carbs: 15.7, iron: 0, calcium: 1 },
   },
+  // 軟飯（離乳後期・米1:水3相当）。MEXTに軟飯の成分値がないため、
+  // 全かゆ(01093)とめし精白米(01088)を米割合で線形補間した推計値。
+  {
+    id: "rice_soft_late",
+    name: "軟飯（後期）",
+    category: "主食",
+    defaultAmount: 80,
+    color: "#ddd0a0",
+    state: "introduced",
+    spoonGrams: { tsp: 5, tbsp: 15 },
+    source: {
+      db: "文部科学省 食品成分データベース（日本食品標準成分表2020年版(八訂)）",
+      foodNo: "01093/01088補間",
+      url: "https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=1_01088_7",
+      referencedAt: "2026-07-19",
+      note: "全かゆ(01093)とめし精白米(01088)を米割合で線形補間した推計値（米1:水3相当）",
+    },
+    per100: { energy: 91, protein: 1.5, fat: 0.2, carbs: 21.8, iron: 0, calcium: 2 },
+  },
+  // 軟飯（離乳完了期・米1:水2相当）。MEXTに軟飯の成分値がないため、
+  // 全かゆ(01093)とめし精白米(01088)を米割合で線形補間した推計値。
+  {
+    id: "rice_soft_completion",
+    name: "軟飯（完了期）",
+    category: "主食",
+    defaultAmount: 90,
+    color: "#e6dcb8",
+    state: "introduced",
+    spoonGrams: { tsp: 5, tbsp: 15 },
+    source: {
+      db: "文部科学省 食品成分データベース（日本食品標準成分表2020年版(八訂)）",
+      foodNo: "01093/01088補間",
+      url: "https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=1_01088_7",
+      referencedAt: "2026-07-19",
+      note: "全かゆ(01093)とめし精白米(01088)を米割合で線形補間した推計値（米1:水2相当）",
+    },
+    per100: { energy: 123, protein: 2.0, fat: 0.2, carbs: 29.4, iron: 0.1, calcium: 2 },
+  },
   // MEXT foodNo 06215: にんじん/根/皮なし/ゆで.
   {
     id: "carrot",
