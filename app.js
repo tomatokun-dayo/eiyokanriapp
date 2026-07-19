@@ -42,6 +42,10 @@ const elements = {
   milkInput: document.querySelector("#milk-input"),
   milkList: document.querySelector("#milk-list"),
   milkTotal: document.querySelector("#milk-total"),
+  syncBar: document.querySelector("#sync-bar"),
+  syncBarButton: document.querySelector("#sync-bar-button"),
+  syncBarLabel: document.querySelector("#sync-bar-label"),
+  syncBarStatus: document.querySelector("#sync-bar-status"),
 };
 
 function syncToday() {
@@ -66,6 +70,37 @@ function init() {
   renderMealTemplates();
   bindEvents();
   render();
+  initSyncBar();
+}
+
+// 記録ページ上部の同期バー（Supabase接続情報がある場合のみ表示）。
+// ログイン前は「夫婦で同期する」、ログイン後は「今すぐ同期」ボタンになる。
+function initSyncBar() {
+  if (!window.EiyoSync || !EiyoSync.CONFIGURED || !elements.syncBar) return;
+
+  EiyoSync.init();
+  elements.syncBar.hidden = false;
+
+  let loggedIn = false;
+  elements.syncBarButton.addEventListener("click", () => {
+    if (loggedIn) EiyoSync.syncNow();
+    else EiyoSync.signIn();
+  });
+
+  EiyoSync.onAuth((user) => {
+    loggedIn = Boolean(user);
+    elements.syncBarLabel.textContent = loggedIn ? "今すぐ同期" : "ログイン";
+  });
+
+  EiyoSync.onStatus((status) => {
+    elements.syncBarStatus.textContent = status.message || "";
+    if (status.state) elements.syncBarStatus.dataset.state = status.state;
+  });
+
+  // ログイン済みならページを開いた時点で一度同期する。
+  EiyoSync.getUser().then((user) => {
+    if (user) EiyoSync.syncNow();
+  });
 }
 
 function renderFormOptions() {

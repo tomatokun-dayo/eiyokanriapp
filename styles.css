@@ -478,6 +478,62 @@ h2 {
   color: #d99f32;
 }
 
+/* 記録ページ上部の同期バー（気軽に押せる位置） */
+.sync-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.sync-bar-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 999px;
+  background: var(--teal);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sync-bar-button:hover {
+  background: var(--teal-dark);
+}
+
+.sync-bar-icon {
+  font-size: 1rem;
+}
+
+.sync-bar-status {
+  color: var(--muted);
+  font-size: 0.85rem;
+  min-height: 1.2em;
+}
+
+.sync-bar-status[data-state="ok"] {
+  color: var(--teal);
+}
+
+.sync-bar-status[data-state="error"] {
+  color: var(--coral);
+}
+
+.sync-bar-status[data-state="syncing"],
+.sync-bar-status[data-state="pending"],
+.sync-bar-status[data-state="offline"] {
+  color: var(--gold);
+}
+
 .milk-panel {
   grid-column: span 4;
 }
