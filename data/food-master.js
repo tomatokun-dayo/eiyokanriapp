@@ -18,6 +18,43 @@ window.FOOD_MASTER = [
     },
     per100: { energy: 33, protein: 0.5, fat: 0.1, carbs: 7.9, iron: 0, calcium: 1 },
   },
+  // MEXT foodNo 01093: こめ/［水稲全かゆ］/精白米, 七分がゆ相当。
+  // MEXT に七分かゆの成分値がないため、五分かゆ(10倍/01097)と全かゆ(5倍/01093)を
+  // 米の割合(1/希釈倍率)で線形補間した推計値。
+  {
+    id: "rice_7x",
+    name: "7倍がゆ",
+    category: "主食",
+    defaultAmount: 70,
+    color: "#dcc25c",
+    state: "introduced",
+    spoonGrams: { tsp: 5, tbsp: 15 },
+    source: {
+      db: "文部科学省 食品成分データベース（日本食品標準成分表2020年版(八訂)）",
+      foodNo: "01093/01097補間",
+      url: "https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=1_01093_7",
+      referencedAt: "2026-07-19",
+      note: "全かゆ(01093)と五分かゆ(01097)を米割合で線形補間した推計値",
+    },
+    per100: { energy: 47, protein: 0.8, fat: 0.1, carbs: 11.2, iron: 0, calcium: 1 },
+  },
+  // MEXT foodNo 01093: こめ/［水稲全かゆ］/精白米, 全がゆ=5倍がゆ相当.
+  {
+    id: "rice_5x",
+    name: "5倍がゆ",
+    category: "主食",
+    defaultAmount: 80,
+    color: "#d4b84a",
+    state: "introduced",
+    spoonGrams: { tsp: 5, tbsp: 15 },
+    source: {
+      db: "文部科学省 食品成分データベース（日本食品標準成分表2020年版(八訂)）",
+      foodNo: "01093",
+      url: "https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=1_01093_7",
+      referencedAt: "2026-07-19",
+    },
+    per100: { energy: 65, protein: 1.1, fat: 0.1, carbs: 15.7, iron: 0, calcium: 1 },
+  },
   // MEXT foodNo 06215: にんじん/根/皮なし/ゆで.
   {
     id: "carrot",
