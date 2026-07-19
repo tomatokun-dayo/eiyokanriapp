@@ -70,7 +70,7 @@ LWW = Last Write Wins（`updated_at` が新しい方を採用）。
 
 ### 4.2 テーブル定義（Supabase側・SQL全文）
 
-Phase 0 でダッシュボードのSQL Editorから適用する。
+Phase 0 でダッシュボードのSQL Editorから適用する。前提として、プロジェクト設定の「Automatically expose new tables」はOFF、「Enable automatic RLS」はONにしておく（新規テーブルへの自動権限付与を止め、RLS有効化は保険として自動化する）。OFFにした分、`sync_items` への権限は下記SQLで明示的に付与する。
 
 ```sql
 -- 同期データ本体。全ストアを1テーブルに集約（store, id で一意）
@@ -116,6 +116,11 @@ create policy "members can delete" on public.sync_items
 
 -- Realtime 配信対象に追加（postgres_changes は RLS を尊重する）
 alter publication supabase_realtime add table public.sync_items;
+
+-- 「Automatically expose new tables」をOFFにしたため、Data API用の権限を明示付与する。
+-- authenticated のみに付与し、anon には一切付与しない（RLSと合わせた二重の防御）。
+-- members は意図的に権限を付与しない = Data APIからは存在ごと見えない。
+grant select, insert, update, delete on public.sync_items to authenticated;
 
 -- メンバー登録（実際のメールはダッシュボードでのみ入力。リポジトリに書かない）
 -- insert into public.members (email) values ('（夫のGmail）'), ('（妻のGmail）');
