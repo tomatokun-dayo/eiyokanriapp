@@ -77,12 +77,15 @@
               <small>ml</small>
             </div>
           </div>
+          <!-- ワンタップが主な入力経路。下の手入力はそれ以外の量を入れるとき用 -->
+          <p class="milk-quick-label">よく使う量（タップですぐ追加）</p>
+          <div class="milk-quick" id="milk-quick" aria-label="よく使う量"></div>
           <form class="milk-form" id="milk-form">
             <label class="milk-field">
-              <span>量 (ml)</span>
+              <span>ほかの量 (ml)</span>
               <input id="milk-input" type="number" min="10" step="10" max="400" placeholder="200" />
             </label>
-            <button class="primary-button milk-add" type="submit">ミルクを追加</button>
+            <button class="primary-button milk-add" type="submit">追加</button>
           </form>
           <div class="milk-list" id="milk-list"></div>
           <p class="milk-note">

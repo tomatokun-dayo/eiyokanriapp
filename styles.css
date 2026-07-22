@@ -538,6 +538,41 @@ h2 {
   grid-column: span 4;
 }
 
+.milk-quick-label {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+/* 折り返して最下段に落ちると押しにくいので、常に1行に収める */
+.milk-quick {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.milk-quick-button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  padding: 10px 6px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.milk-quick-button:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+.milk-quick-button:active {
+  background: var(--bg);
+}
+
 .milk-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

@@ -42,6 +42,7 @@ const elements = {
   milkInput: document.querySelector("#milk-input"),
   milkList: document.querySelector("#milk-list"),
   milkTotal: document.querySelector("#milk-total"),
+  milkQuick: document.querySelector("#milk-quick"),
   milkProductName: document.querySelector("#milk-product-name"),
   syncBar: document.querySelector("#sync-bar"),
   syncBarButton: document.querySelector("#sync-bar-button"),
@@ -952,6 +953,49 @@ function renderLog(entries) {
     .join("");
 }
 
+// 1日に何度も入力するため、よく使う量はワンタップで追加できるようにする。
+const MILK_QUICK_COUNT = 4;
+const MILK_QUICK_DEFAULTS = [140, 160, 180, 200];
+
+// 過去の記録から使用回数の多い量を拾う。履歴が少ないうちは一般的な量で埋める。
+function getMilkQuickAmounts() {
+  const counts = new Map();
+  for (const feed of milkStore.getAllFeeds()) {
+    if (!Number.isFinite(feed.ml) || feed.ml <= 0) continue;
+    counts.set(feed.ml, (counts.get(feed.ml) ?? 0) + 1);
+  }
+
+  const amounts = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || b[0] - a[0]) // 回数が多い順、同数なら量が多い順
+    .slice(0, MILK_QUICK_COUNT)
+    .map(([ml]) => ml);
+
+  for (const fallback of MILK_QUICK_DEFAULTS) {
+    if (amounts.length >= MILK_QUICK_COUNT) break;
+    if (!amounts.includes(fallback)) amounts.push(fallback);
+  }
+
+  // ボタンの位置が毎回入れ替わらないよう昇順で並べる
+  return amounts.sort((a, b) => a - b);
+}
+
+function renderMilkQuickPicks() {
+  if (!elements.milkQuick) return;
+
+  elements.milkQuick.replaceChildren();
+  for (const ml of getMilkQuickAmounts()) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "milk-quick-button";
+    button.textContent = `${ml}ml`;
+    button.addEventListener("click", () => {
+      milkStore.addFeed(ml);
+      render();
+    });
+    elements.milkQuick.appendChild(button);
+  }
+}
+
 function renderMilk() {
   if (!elements.milkList || !elements.milkTotal) return;
 
@@ -959,6 +1003,8 @@ function renderMilk() {
   if (elements.milkProductName) {
     elements.milkProductName.textContent = MILK_PRODUCT.name;
   }
+
+  renderMilkQuickPicks();
 
   const feeds = milkStore.getTodayFeeds();
   const totalMl = feeds.reduce((sum, feed) => sum + feed.ml, 0);
