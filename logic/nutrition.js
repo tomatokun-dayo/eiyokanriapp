@@ -40,3 +40,19 @@ const MILK_PER_100ML = { energy: 66, protein: 1.6, fat: 3.5, carbs: 7.3, iron: 0
 function milkNutrient(totalMl, nutrientKey) {
   return (MILK_PER_100ML[nutrientKey] * totalMl) / 100;
 }
+
+// ミルク量(ml)を栄養素の合計に変換する。
+function calculateMilkTotals(totalMl) {
+  return Object.fromEntries(NUTRIENTS.map((nutrient) => [nutrient.key, milkNutrient(totalMl, nutrient.key)]));
+}
+
+// 離乳食とミルクの合計。目安ラインは1日の総摂取量に対する値なので、
+// 充足率の判定にはこの合計を使う。
+function combineTotals(...totalsList) {
+  return Object.fromEntries(
+    NUTRIENTS.map((nutrient) => [
+      nutrient.key,
+      totalsList.reduce((sum, totals) => sum + (totals?.[nutrient.key] ?? 0), 0),
+    ]),
+  );
+}

@@ -61,7 +61,7 @@ function syncToday() {
 }
 
 let selectedChartNutrients = new Set(["energy", "protein", "iron", "calcium"]);
-let selectedAgeTargetId = "7-8";
+let selectedAgeTargetId = "6-8";
 let activeBatchRowIndex = null;
 
 function init() {
@@ -673,12 +673,15 @@ function render() {
 
   const entries = memoryStore.getTodayEntries();
   const allEntries = memoryStore.getAllEntries();
-  const totals = calculateTotals(entries);
+  // 目安ラインは「1日の総摂取量」なので、離乳食にミルクを合流させて評価する。
+  const foodTotals = calculateTotals(entries);
+  const milkMl = milkStore.getTodayFeeds().reduce((sum, feed) => sum + feed.ml, 0);
+  const totals = combineTotals(foodTotals, calculateMilkTotals(milkMl));
 
   elements.entryCount.textContent = String(entries.length);
-  renderSummary(totals, entries);
+  renderSummary(totals, entries, milkMl);
   renderQuickPicks();
-  renderTotals(totals, entries);
+  renderTotals(totals, foodTotals, entries);
   renderSuggestions(totals, entries);
   renderMilk();
   renderLog(entries);
@@ -686,10 +689,10 @@ function render() {
   renderPlate(entries);
 }
 
-function renderSummary(totals, entries) {
+// totals はミルク込みの合計。％は1日の総摂取量の目安に対する割合。
+function renderSummary(totals, entries, milkTotal) {
   if (!elements.summaryStats || !elements.summaryMessage) return;
 
-  const milkTotal = milkStore.getTodayFeeds().reduce((sum, feed) => sum + feed.ml, 0);
   const percentOf = (key) => {
     const target = getTargetValue(key);
     if (target <= 0) return 0;
@@ -717,7 +720,10 @@ function renderSummary(totals, entries) {
 
   let message;
   if (entries.length === 0) {
-    message = "今日はまだ記録がありません。1品から気軽に記録してみましょう。";
+    message =
+      milkTotal > 0
+        ? "離乳食はまだ記録がありません。％はミルク分のみの充足率です。1品から気軽に記録してみましょう。"
+        : "今日はまだ記録がありません。1品から気軽に記録してみましょう。";
   } else {
     const deficits = buildSuggestions(totals);
     if (deficits.length === 0) {
@@ -731,7 +737,7 @@ function renderSummary(totals, entries) {
 }
 
 function getActiveAgeTarget() {
-  return ageTargetById.get(selectedAgeTargetId) ?? ageTargetById.get("7-8");
+  return ageTargetById.get(selectedAgeTargetId) ?? ageTargetById.get("6-8");
 }
 
 function getTargetValue(nutrientKey) {
@@ -810,45 +816,68 @@ function renderSuggestions(totals, entries) {
   }
 }
 
-function renderTotals(totals, entries) {
+// totals = ミルク込みの合計（目安ラインとの比較用）、foodTotals = 離乳食のみ（内訳表示用）
+function renderTotals(totals, foodTotals, entries) {
   const ageTarget = getActiveAgeTarget();
 
-  elements.totalsList.innerHTML = NUTRIENTS.map((nutrient) => {
-    const value = totals[nutrient.key];
+  elements.totalsList.replaceChildren();
+  for (const nutrient of NUTRIENTS) {
+    const value = totals[nutrient.key] ?? 0;
+    const foodValue = foodTotals[nutrient.key] ?? 0;
     const target = getTargetValue(nutrient.key);
-    const percentage = Math.min((value / target) * 100, 120);
-    const width = Math.min(percentage, 100);
+    const ratio = target > 0 ? value / target : 0;
+    const width = Math.min(ratio * 100, 100);
+    const met = ratio >= 1;
 
-    return `
-      <div class="nutrient-row">
-        <div class="nutrient-topline">
-          <span class="nutrient-name">${nutrient.label}</span>
-          <span class="nutrient-value">${formatValue(value, nutrient)} / 目安${formatValue(target, nutrient)}</span>
-        </div>
-        <div
-          class="progress-track"
-          role="progressbar"
-          aria-label="${nutrient.label}"
-          aria-valuemin="0"
-          aria-valuemax="100"
-          aria-valuenow="${Math.round(width)}"
-        >
-          <div class="progress-fill" style="width: ${width}%; --bar-color: ${nutrient.color}"></div>
-        </div>
-      </div>
-    `;
-  }).join("");
+    const row = document.createElement("div");
+    row.className = "nutrient-row";
+
+    const topline = document.createElement("div");
+    topline.className = "nutrient-topline";
+    const name = document.createElement("span");
+    name.className = "nutrient-name";
+    name.textContent = nutrient.label;
+    const valueLabel = document.createElement("span");
+    valueLabel.className = "nutrient-value";
+    // 目安に届いていれば「✓」を添える（ミルクは完全栄養なので超過は通常のこと）
+    valueLabel.textContent = `${formatValue(value, nutrient)} / 目安${formatValue(target, nutrient)}${met ? " ✓" : ""}`;
+    topline.append(name, valueLabel);
+
+    const track = document.createElement("div");
+    track.className = "progress-track";
+    track.setAttribute("role", "progressbar");
+    track.setAttribute("aria-label", nutrient.label);
+    track.setAttribute("aria-valuemin", "0");
+    track.setAttribute("aria-valuemax", "100");
+    track.setAttribute("aria-valuenow", String(Math.round(width)));
+    const fill = document.createElement("div");
+    fill.className = "progress-fill";
+    fill.style.setProperty("width", `${width}%`);
+    fill.style.setProperty("--bar-color", nutrient.color);
+    track.appendChild(fill);
+
+    // 内訳: 合計のうち離乳食が占める分（離乳食の進み具合の目安）
+    const breakdown = document.createElement("p");
+    breakdown.className = "nutrient-breakdown";
+    const foodShare = value > 0 ? Math.round((foodValue / value) * 100) : 0;
+    breakdown.textContent = `うち離乳食 ${formatValue(foodValue, nutrient)}（${foodShare}%）`;
+
+    row.append(topline, track, breakdown);
+    elements.totalsList.appendChild(row);
+  }
+
+  const energyLabel = formatValue(totals.energy ?? 0, nutrientByKey.get("energy"));
+  const foodEnergyShare =
+    (totals.energy ?? 0) > 0 ? Math.round(((foodTotals.energy ?? 0) / totals.energy) * 100) : 0;
 
   if (entries.length === 0) {
-    elements.mainBalance.textContent = "まだ記録がありません";
-    elements.subBalance.textContent = `${ageTarget.label}（${ageTarget.note}）が離乳食から取りたい分の目安を表示中。食材を追加すると合計が更新されます。`;
+    elements.mainBalance.textContent = "離乳食はまだ記録がありません";
+    elements.subBalance.textContent = `${ageTarget.label}（${ageTarget.note}）の1日の目安と、ミルクを含む合計を比較中。現在 ${energyLabel}。`;
     return;
   }
 
-  const protein = totals.protein;
-  const energy = totals.energy;
   elements.mainBalance.textContent = `${entries.length}品を集計中`;
-  elements.subBalance.textContent = `${ageTarget.label}（${ageTarget.note}）の離乳食からの目安と比較中。エネルギー ${formatValue(energy, nutrientByKey.get("energy"))}、たんぱく質 ${formatValue(protein, nutrientByKey.get("protein"))}。`;
+  elements.subBalance.textContent = `${ageTarget.label}（${ageTarget.note}）の1日の目安（ミルク込みの合計）と比較中。エネルギー ${energyLabel}、うち離乳食が${foodEnergyShare}%。`;
 }
 
 function renderQuickPicks() {
@@ -972,14 +1001,19 @@ function renderMilk() {
 function buildTrendData(entries) {
   const [year, month, day] = todayKey.split("-").map(Number);
   const today = new Date(year, month - 1, day);
+  const allFeeds = milkStore.getAllFeeds();
 
   return Array.from({ length: 7 }, (_, index) => {
     const date = toDateKey(addDays(today, index - 6));
     const entriesForDate = entries.filter((entry) => entry.date === date);
+    // グラフも目安ラインと同じ基準にするため、ミルク分を合流させる。
+    const milkMlForDate = allFeeds
+      .filter((feed) => feed.date === date)
+      .reduce((sum, feed) => sum + feed.ml, 0);
 
     return {
       date,
-      totals: calculateTotals(entriesForDate),
+      totals: combineTotals(calculateTotals(entriesForDate), calculateMilkTotals(milkMlForDate)),
     };
   });
 }

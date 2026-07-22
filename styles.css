@@ -1115,6 +1115,15 @@ h2 {
   font-weight: 720;
 }
 
+/* 合計のうち離乳食が占める分（進み具合の目安） */
+.nutrient-breakdown {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
 .progress-track {
   height: 10px;
   overflow: hidden;
