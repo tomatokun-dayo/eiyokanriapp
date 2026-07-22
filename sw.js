@@ -1,6 +1,6 @@
 // アプリシェルのキャッシュ。ファイル更新時は CACHE_VERSION を上げると、
 // activate で古いキャッシュを破棄して自動的に入れ替わる。
-const CACHE_VERSION = "eiyokanri-v7";
+const CACHE_VERSION = "eiyokanri-v8";
 
 const APP_SHELL = [
   "./",
@@ -13,6 +13,7 @@ const APP_SHELL = [
   "store.js",
   "sync-config.js",
   "sync.js",
+  "register-sw.js",
   "vendor/supabase.js",
   "logic/units.js",
   "logic/memo.js",
