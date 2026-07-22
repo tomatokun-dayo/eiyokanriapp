@@ -65,6 +65,31 @@
           <p class="summary-note">％は1日の摂取目安に対する割合です（ミルクと離乳食の合計で計算）。</p>
         </section>
 
+        <!-- 1日に何度も入力するため、離乳食の入力フォームより上に置く -->
+        <section class="panel milk-panel" aria-labelledby="milk-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">授乳</p>
+              <h2 id="milk-title">ミルク</h2>
+            </div>
+            <div class="score-pill">
+              <span id="milk-total">0</span>
+              <small>ml</small>
+            </div>
+          </div>
+          <form class="milk-form" id="milk-form">
+            <label class="milk-field">
+              <span>量 (ml)</span>
+              <input id="milk-input" type="number" min="10" step="10" max="400" placeholder="200" />
+            </label>
+            <button class="primary-button milk-add" type="submit">ミルクを追加</button>
+          </form>
+          <div class="milk-list" id="milk-list"></div>
+          <p class="milk-note">
+            育児用ミルクの記録です。目安バーは1日の総摂取量が基準のため、この分も栄養合計に含めて計算します。推定栄養は<span id="milk-product-name">粉ミルク</span>の表示値を標準調乳で換算したものです（母乳は量を測れないため未対応）。
+          </p>
+        </section>
+
         <section class="panel intake-panel" aria-labelledby="entry-title">
           <div class="panel-heading">
             <div>
@@ -145,30 +170,6 @@
             </div>
           </div>
           <div class="suggestions" id="suggestions"></div>
-        </section>
-
-        <section class="panel milk-panel" aria-labelledby="milk-title">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">別枠</p>
-              <h2 id="milk-title">ミルク</h2>
-            </div>
-            <div class="score-pill">
-              <span id="milk-total">0</span>
-              <small>ml</small>
-            </div>
-          </div>
-          <form class="milk-form" id="milk-form">
-            <label class="milk-field">
-              <span>量 (ml)</span>
-              <input id="milk-input" type="number" min="10" step="10" max="400" placeholder="200" />
-            </label>
-            <button class="primary-button milk-add" type="submit">ミルクを追加</button>
-          </form>
-          <div class="milk-list" id="milk-list"></div>
-          <p class="milk-note">
-            育児用ミルクの記録です。目安バーは1日の総摂取量が基準のため、この分も栄養合計に含めて計算します。推定栄養は<span id="milk-product-name">粉ミルク</span>の表示値を標準調乳で換算したものです（母乳は量を測れないため未対応）。
-          </p>
         </section>
 
         <section class="panel log-panel" aria-labelledby="log-title">
