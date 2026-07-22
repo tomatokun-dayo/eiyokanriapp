@@ -211,6 +211,10 @@
       const pending = meta.queue[key];
       // ローカルに新しい（以上の）保留変更があればローカルを優先し、リモートを捨てる。
       if (pending && pending.updatedAt >= row.updated_at) continue;
+      // リモート行の形状を最低限検証する。追加・更新の data は必ずオブジェクト。
+      // 壊れた行や悪意ある行（プリミティブ等）をそのまま localStorage へ流し込まない。
+      // 各ストア固有の妥当性は writeAll 側（例: replaceAllCustomFoods の isValidCustomFood）で担保。
+      if (!row.deleted && (!row.data || typeof row.data !== "object")) continue;
 
       if (!maps[row.store]) maps[row.store] = ADAPTERS[row.store].read();
       const map = maps[row.store];

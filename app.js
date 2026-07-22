@@ -103,6 +103,18 @@ function initSyncBar() {
   });
 }
 
+// innerHTML に文字列連結で埋め込む前に必ず通す。
+// 食材名・食材ID・記録IDなどは同期でリモート（相手の端末）から届くため、
+// エスケープを怠るとstored XSSの経路になる。数値/静的定数はここを通さなくてよい。
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function renderFormOptions() {
   elements.ageStage.innerHTML = AGE_TARGETS.map(
     (target) => `<option value="${target.id}" ${target.id === selectedAgeTargetId ? "selected" : ""}>${target.label}</option>`,
@@ -139,7 +151,7 @@ function renderBatchRow(row, index) {
   const options = [
     `<option value="">未選択</option>`,
     ...FOOD_MASTER.map(
-      (food) => `<option value="${food.id}" ${food.id === row.foodId ? "selected" : ""}>${food.name}</option>`,
+      (food) => `<option value="${escapeHtml(food.id)}" ${food.id === row.foodId ? "selected" : ""}>${escapeHtml(food.name)}</option>`,
     ),
   ].join("");
 
@@ -843,9 +855,9 @@ function renderQuickPicks() {
   elements.quickPicks.innerHTML = FOOD_MASTER.slice(0, 6)
     .map(
       (food) => `
-        <button class="quick-pick" type="button" data-pick-food="${food.id}">
-          <span class="swatch" style="--swatch: ${food.color}"></span>
-          <span>${food.name}</span>
+        <button class="quick-pick" type="button" data-pick-food="${escapeHtml(food.id)}">
+          <span class="swatch" style="--swatch: ${escapeHtml(food.color)}"></span>
+          <span>${escapeHtml(food.name)}</span>
         </button>
       `,
     )
@@ -886,7 +898,7 @@ function renderLog(entries) {
             </div>
             <div class="log-meta">${formatEntryAmount(entry)} / ${time}</div>
           </div>
-          <button class="delete-button" type="button" data-remove-entry="${entry.id}">削除</button>
+          <button class="delete-button" type="button" data-remove-entry="${escapeHtml(entry.id)}">削除</button>
         </article>
       `;
       }
@@ -898,12 +910,12 @@ function renderLog(entries) {
         <article class="log-item">
           <div>
             <div class="log-title">
-              <span>${food.name}</span>
+              <span>${escapeHtml(food.name)}</span>
               <span class="meal-badge">${meal?.label ?? ""}</span>
             </div>
             <div class="log-meta">${formatEntryAmount(entry)} / ${time} / ${formatValue(energy, nutrientByKey.get("energy"))} / ${formatValue(protein, nutrientByKey.get("protein"))}</div>
           </div>
-          <button class="delete-button" type="button" data-remove-entry="${entry.id}">削除</button>
+          <button class="delete-button" type="button" data-remove-entry="${escapeHtml(entry.id)}">削除</button>
         </article>
       `;
     })

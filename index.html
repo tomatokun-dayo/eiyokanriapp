@@ -2,6 +2,16 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      Content Security Policy（XSSの二重防御。GitHub Pagesはヘッダーを付けられないため meta で指定）。
+      connect-src の Supabase URL は sync-config.js と一致させること（同期の https/wss 接続先）。
+      style-src に 'unsafe-inline' が要るのは、描画コードが style="..." 属性を使うため。
+      worker-src blob: は将来の Supabase Realtime（オプトインのkeepAliveワーカー）用の許可。
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://ocjjohcbyqtfgypjujow.supabase.co wss://ocjjohcbyqtfgypjujow.supabase.co; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>離乳食栄養メモ</title>
     <meta name="theme-color" content="#24786a" />
@@ -224,14 +234,6 @@
     <script src="vendor/supabase.js" defer></script>
     <script src="sync.js" defer></script>
     <script src="app.js" defer></script>
-    <script>
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker.register("sw.js").catch(() => {
-            // オフライン化に失敗しても通常のWebページとして動作する
-          });
-        });
-      }
-    </script>
+    <script src="register-sw.js" defer></script>
   </body>
 </html>
