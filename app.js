@@ -42,6 +42,7 @@ const elements = {
   milkInput: document.querySelector("#milk-input"),
   milkList: document.querySelector("#milk-list"),
   milkTotal: document.querySelector("#milk-total"),
+  milkProductName: document.querySelector("#milk-product-name"),
   syncBar: document.querySelector("#sync-bar"),
   syncBarButton: document.querySelector("#sync-bar-button"),
   syncBarLabel: document.querySelector("#sync-bar-label"),
@@ -953,6 +954,11 @@ function renderLog(entries) {
 
 function renderMilk() {
   if (!elements.milkList || !elements.milkTotal) return;
+
+  // 説明文の製品名は MILK_PRODUCT から差し込む（製品を変えたときの書き換え漏れ防止）
+  if (elements.milkProductName) {
+    elements.milkProductName.textContent = MILK_PRODUCT.name;
+  }
 
   const feeds = milkStore.getTodayFeeds();
   const totalMl = feeds.reduce((sum, feed) => sum + feed.ml, 0);

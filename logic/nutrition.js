@@ -32,10 +32,21 @@ function formatValue(value, nutrient) {
   return `${rounded.replace(/\.0$/, "")}${nutrient?.unit ? nutrient.unit : ""}`;
 }
 
-// 文部科学省 食品成分データベース foodNo 13011「乳児用調製粉乳」(100gあたり)を13%調乳（粉13g/出来上がり100ml）で換算。参照日: 2026-07-03。
-// https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=13_13011_7
-// 製品により差があるため、パッケージ表示を優先。
-const MILK_PER_100ML = { energy: 66, protein: 1.6, fat: 3.5, carbs: 7.3, iron: 0.8, calcium: 48 };
+// 使用中の育児用ミルク。製品を変えるときは per100g と powderRatio を差し替えるだけでよい
+// （表示名は index.html のミルク説明文にJSから差し込まれる）。
+// powderRatio = 粉の重量 ÷ 出来上がり量。はぐくみの標準調乳は すりきり1さじ2.6g → 20mL なので 0.13。
+const MILK_PRODUCT = {
+  name: "森永はぐくみ",
+  per100g: { energy: 512, protein: 10.5, fat: 27.0, carbs: 57.5, iron: 6.0, calcium: 380 },
+  powderRatio: 0.13,
+  url: "https://www.morinagamilk.co.jp/products/babyfood/hagukumi/305.html",
+  referencedAt: "2026-07-22",
+};
+
+// 出来上がり100mLあたりの栄養（粉100gあたりの表示値 × 調乳濃度）。
+const MILK_PER_100ML = Object.fromEntries(
+  Object.entries(MILK_PRODUCT.per100g).map(([key, value]) => [key, value * MILK_PRODUCT.powderRatio]),
+);
 
 function milkNutrient(totalMl, nutrientKey) {
   return (MILK_PER_100ML[nutrientKey] * totalMl) / 100;
