@@ -683,7 +683,7 @@ function render() {
   elements.entryCount.textContent = String(entries.length);
   renderSummary(totals, entries, milkMl);
   renderQuickPicks();
-  renderTotals(totals, foodTotals, entries);
+  renderTotals(totals, foodTotals, entries, milkMl);
   renderSuggestions(totals, entries);
   renderMilk();
   renderLog(entries);
@@ -818,9 +818,89 @@ function renderSuggestions(totals, entries) {
   }
 }
 
+// 開いている栄養素の内訳。render() のたびにDOMを作り直すため、開閉状態はここで保持する。
+const expandedNutrients = new Set();
+
+// 「何が多かったのか」を答えるための内訳。ミルクと離乳食を同列に並べ、多い順に返す。
+const CONTRIBUTOR_LIMIT = 6;
+
+function getNutrientContributors(nutrientKey, entries, milkMl) {
+  const items = [];
+
+  if (milkMl > 0) {
+    items.push({ label: MILK_PRODUCT.name, value: milkNutrient(milkMl, nutrientKey) });
+  }
+
+  // 同じ食材を複数回記録していれば1行にまとめる
+  const byFood = new Map();
+  for (const entry of entries) {
+    const food = foodById.get(entry.foodId);
+    if (!food) continue;
+    const value = (food.per100[nutrientKey] * entry.amount) / 100;
+    const current = byFood.get(entry.foodId);
+    if (current) current.value += value;
+    else byFood.set(entry.foodId, { label: food.name, value });
+  }
+  items.push(...byFood.values());
+
+  // その栄養素を含まない食材は並べても情報にならないので除く
+  return items.filter((item) => item.value > 0).sort((a, b) => b.value - a.value);
+}
+
+function renderNutrientContributors(container, nutrient, entries, milkMl, total) {
+  container.replaceChildren();
+
+  const contributors = getNutrientContributors(nutrient.key, entries, milkMl);
+  if (contributors.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "contributor-empty";
+    empty.textContent = "まだ記録がありません。";
+    container.appendChild(empty);
+    return;
+  }
+
+  const shown = contributors.slice(0, CONTRIBUTOR_LIMIT);
+  const rest = contributors.slice(CONTRIBUTOR_LIMIT);
+
+  for (const item of shown) {
+    const line = document.createElement("div");
+    line.className = "contributor-item";
+    const label = document.createElement("span");
+    label.className = "contributor-label";
+    label.textContent = item.label;
+    const value = document.createElement("span");
+    value.className = "contributor-value";
+    const share = total > 0 ? Math.round((item.value / total) * 100) : 0;
+    value.textContent = `${formatValue(item.value, nutrient)}（${share}%）`;
+    line.append(label, value);
+    container.appendChild(line);
+  }
+
+  if (rest.length > 0) {
+    const restValue = rest.reduce((sum, item) => sum + item.value, 0);
+    const line = document.createElement("div");
+    line.className = "contributor-item contributor-rest";
+    const label = document.createElement("span");
+    label.className = "contributor-label";
+    label.textContent = `ほか${rest.length}品`;
+    const value = document.createElement("span");
+    value.className = "contributor-value";
+    value.textContent = formatValue(restValue, nutrient);
+    line.append(label, value);
+    container.appendChild(line);
+  }
+}
+
 // totals = ミルク込みの合計（目安ラインとの比較用）、foodTotals = 離乳食のみ（内訳表示用）
-function renderTotals(totals, foodTotals, entries) {
+function renderTotals(totals, foodTotals, entries, milkMl) {
   const ageTarget = getActiveAgeTarget();
+
+  // DOMを作り直す前に現在の開閉状態を取り込む。
+  // details の toggle イベントは非同期に発火するため、それに頼らず同期的に読む。
+  for (const row of elements.totalsList.querySelectorAll("[data-nutrient]")) {
+    if (row.open) expandedNutrients.add(row.dataset.nutrient);
+    else expandedNutrients.delete(row.dataset.nutrient);
+  }
 
   elements.totalsList.replaceChildren();
   for (const nutrient of NUTRIENTS) {
@@ -831,8 +911,14 @@ function renderTotals(totals, foodTotals, entries) {
     const width = Math.min(ratio * 100, 100);
     const met = ratio >= 1;
 
-    const row = document.createElement("div");
+    // 「何が多かったのか」を知りたい行だけタップして開ける（普段の見た目は変えない）
+    const row = document.createElement("details");
     row.className = "nutrient-row";
+    row.dataset.nutrient = nutrient.key;
+    row.open = expandedNutrients.has(nutrient.key);
+
+    const summary = document.createElement("summary");
+    summary.className = "nutrient-summary";
 
     const topline = document.createElement("div");
     topline.className = "nutrient-topline";
@@ -864,7 +950,13 @@ function renderTotals(totals, foodTotals, entries) {
     const foodShare = value > 0 ? Math.round((foodValue / value) * 100) : 0;
     breakdown.textContent = `うち離乳食 ${formatValue(foodValue, nutrient)}（${foodShare}%）`;
 
-    row.append(topline, track, breakdown);
+    summary.append(topline, track, breakdown);
+
+    const contributors = document.createElement("div");
+    contributors.className = "nutrient-contributors";
+    renderNutrientContributors(contributors, nutrient, entries, milkMl, value);
+
+    row.append(summary, contributors);
     elements.totalsList.appendChild(row);
   }
 

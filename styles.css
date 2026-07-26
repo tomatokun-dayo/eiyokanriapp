@@ -1128,9 +1128,74 @@ h2 {
   gap: 12px;
 }
 
+/* 栄養素の行はタップで内訳（何が多かったのか）を開ける details */
 .nutrient-row {
   display: grid;
   gap: 7px;
+}
+
+.nutrient-summary {
+  display: grid;
+  gap: 7px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.nutrient-summary::-webkit-details-marker {
+  display: none;
+}
+
+/* 開けることが分かるよう栄養素名の後ろに小さな印を出す */
+.nutrient-name::after {
+  content: "▾";
+  margin-left: 5px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
+.nutrient-row[open] .nutrient-name::after {
+  content: "▴";
+}
+
+.nutrient-contributors {
+  display: grid;
+  gap: 5px;
+  margin-top: 2px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.contributor-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.82rem;
+}
+
+.contributor-label {
+  color: var(--ink);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.contributor-value {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.contributor-rest .contributor-label,
+.contributor-empty {
+  color: var(--muted);
+}
+
+.contributor-empty {
+  margin: 0;
+  font-size: 0.82rem;
 }
 
 .nutrient-topline {
