@@ -117,13 +117,16 @@
             queue: parsed.queue && typeof parsed.queue === "object" ? parsed.queue : {},
             everLoggedIn: Boolean(parsed.everLoggedIn),
             deviceId: typeof parsed.deviceId === "string" ? parsed.deviceId : makeDeviceId(),
+            // 差分取得の基準（見た中で最も新しい updated_at）と、最後に全件取得した時刻。
+            lastPullAt: typeof parsed.lastPullAt === "string" ? parsed.lastPullAt : "",
+            lastFullPullAt: typeof parsed.lastFullPullAt === "string" ? parsed.lastFullPullAt : "",
           };
         }
       }
     } catch (error) {
       /* 壊れていれば初期化 */
     }
-    return { queue: {}, everLoggedIn: false, deviceId: makeDeviceId() };
+    return { queue: {}, everLoggedIn: false, deviceId: makeDeviceId(), lastPullAt: "", lastFullPullAt: "" };
   }
 
   function saveMeta(meta) {
@@ -239,8 +242,12 @@
   // ------------------------------------------------------------------
   // 同期サイクル: pull → merge(LWW) → push
   // ------------------------------------------------------------------
-  async function readAllRemote() {
-    const { data, error } = await getClient().from("sync_items").select("*");
+  // since を渡すとその時刻より後の行だけ取得する。
+  // 全件取得は行数に比例して転送量が増え続けるため、追いつき目的の取得は差分で行う。
+  async function readRemote(since) {
+    let query = getClient().from("sync_items").select("*");
+    if (since) query = query.gt("updated_at", since);
+    const { data, error } = await query;
     if (error) throw error;
     return data || [];
   }
@@ -249,8 +256,11 @@
     const meta = loadMeta();
     const maps = {};
     const changedStores = new Set();
+    // 「どこまで見たか」は取り込めた行だけでなく、見送った行も含めて進める。
+    let seenUpTo = toMillis(meta.lastPullAt);
 
     for (const row of rows) {
+      seenUpTo = Math.max(seenUpTo, toMillis(row.updated_at));
       if (!ADAPTERS[row.store]) continue; // 未知のストア（旧テスト行など）は無視
       const key = `${row.store}|${row.id}`;
       const pending = meta.queue[key];
@@ -284,6 +294,7 @@
         syncApplying = false;
       }
     }
+    if (seenUpTo > toMillis(meta.lastPullAt)) meta.lastPullAt = new Date(seenUpTo).toISOString();
     saveMeta(meta);
     return changedStores.size > 0;
   }
@@ -362,6 +373,27 @@
     if (typeof render === "function") render();
   }
 
+  // updated_at は各端末の時計で書かれるため、差分取得の境界は端末間の時計ずれの分だけ
+  // 手前に戻す。戻さないと、時計が遅れている端末の書き込みを永久に取り逃す。
+  const PULL_MARGIN_MS = 5 * 60 * 1000;
+  // 時計ずれが余裕を超えた場合の保険。1日1回は全件突き合わせる。
+  const FULL_PULL_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+  function needsFullPull(meta, firstSync) {
+    if (firstSync || !meta.lastPullAt || !meta.lastFullPullAt) return true;
+    return Date.now() - toMillis(meta.lastFullPullAt) > FULL_PULL_INTERVAL_MS;
+  }
+
+  function pullSince(meta) {
+    return new Date(toMillis(meta.lastPullAt) - PULL_MARGIN_MS).toISOString();
+  }
+
+  function markFullPull() {
+    const meta = loadMeta();
+    meta.lastFullPullAt = new Date().toISOString();
+    saveMeta(meta);
+  }
+
   let syncing = false;
   // options.pushOnly: 送信だけ行い全件pullを省く。Realtimeが生きている間は
   // 相手の変更が勝手に届くので、記録のたびに全件取得する必要がない。
@@ -385,8 +417,10 @@
       let changed = false;
       // 初回だけは pushOnly でも必ず全件取り込む（相手の既存データと合流するため）。
       if (!pushOnly || firstSync) {
-        const rows = await readAllRemote();
+        const full = needsFullPull(meta, firstSync);
+        const rows = await readRemote(full ? "" : pullSince(meta));
         changed = applyRemoteRows(rows);
+        if (full) markFullPull();
       }
       const { pushed } = await pushQueue(user);
 
