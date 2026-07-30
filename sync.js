@@ -4,8 +4,13 @@
 // - SYNC_CONFIG（URL/KEY）が未設定なら全機能休眠（ローカル専用アプリとして動作）。
 // - 各ストアの書き込みは store.js / custom-foods.js から notifySyncChange() で通知され、
 //   ローカルの変更キュー（eiyokanri.sync.v1）へ積まれる。
-// - syncNow() が pull → merge(LWW) → push を1サイクル実行する（Phase 1 は手動トリガー）。
+// - syncNow() が pull → merge(LWW) → push を1サイクル実行する。
 // - 競合解決は updated_at による Last-Write-Wins。記録/ミルクは追記型で実質衝突しない。
+//
+// 自動同期（Phase 2）の起動条件:
+// - 送信: 変更から FLUSH_DELAY_MS 後にまとめて（Realtime健在なら push のみ）
+// - 受信: sync_items の Realtime購読。相手の変更が無操作で届く
+// - 追いつき: ログイン直後 / タブ復帰 / オンライン復帰 / Realtime再接続 で全件同期
 (function () {
   const config = window.SYNC_CONFIG || {};
   const SUPABASE_URL = config.SUPABASE_URL || "";
@@ -150,8 +155,20 @@
       updatedAt: new Date().toISOString(),
     };
     saveMeta(meta);
-    setStatus("pending", "未同期の変更があります");
+    // ログイン中は少し待ってまとめて送る。未ログインなら溜まっていることだけ示す。
+    if (currentUser) scheduleFlush();
+    else setStatus("pending", "未同期の変更があります");
   }
+
+  // localStorage を一括で書き換えた後（バックアップ復元など）に呼ぶ。
+  // 個別の書き込みフックが通らないため、ローカル全行を送信キューへ積み直す。
+  function queueLocalSnapshot() {
+    if (!HAS_CONFIG) return;
+    enqueueAll();
+    if (currentUser) syncNow();
+    else setStatus("pending", "未同期の変更があります");
+  }
+
   // 他スクリプトから参照できるよう明示的にグローバル化。
   window.notifySyncChange = notifySyncChange;
 
@@ -192,6 +209,34 @@
   }
 
   // ------------------------------------------------------------------
+  // 比較ユーティリティ
+  // ------------------------------------------------------------------
+  // jsonb はキーの並び順を保存しないため、リモートから戻った data のキー順は
+  // ローカルのオブジェクトと一致しない。JSON.stringify の素朴な比較では
+  // 「中身は同じなのに違う」と誤判定するので、キーを揃えてから比較する。
+  function stableStringify(value) {
+    if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
+    if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+    const keys = Object.keys(value).sort();
+    return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+  }
+
+  function sameData(a, b) {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    return stableStringify(a) === stableStringify(b);
+  }
+
+  // 同じ時刻でも経路によって表記が違う。ローカルは "…T10:00:00.000Z"、
+  // REST は "…T10:00:00+00:00"、Realtime(WAL) は "… 10:00:00+00" と空白区切りで来る。
+  // 空白(0x20)は "T"(0x54) より小さいので、文字列比較ではRealtimeの行が常に古い扱いになり、
+  // 保留中の変更がある行のリモート更新を取りこぼす。必ず時刻に直して比べる。
+  function toMillis(value) {
+    const time = Date.parse(value);
+    return Number.isNaN(time) ? 0 : time;
+  }
+
+  // ------------------------------------------------------------------
   // 同期サイクル: pull → merge(LWW) → push
   // ------------------------------------------------------------------
   async function readAllRemote() {
@@ -210,7 +255,7 @@
       const key = `${row.store}|${row.id}`;
       const pending = meta.queue[key];
       // ローカルに新しい（以上の）保留変更があればローカルを優先し、リモートを捨てる。
-      if (pending && pending.updatedAt >= row.updated_at) continue;
+      if (pending && toMillis(pending.updatedAt) >= toMillis(row.updated_at)) continue;
       // リモート行の形状を最低限検証する。追加・更新の data は必ずオブジェクト。
       // 壊れた行や悪意ある行（プリミティブ等）をそのまま localStorage へ流し込まない。
       // 各ストア固有の妥当性は writeAll 側（例: replaceAllCustomFoods の isValidCustomFood）で担保。
@@ -220,7 +265,10 @@
       const map = maps[row.store];
       if (row.deleted) {
         if (map.delete(row.id)) changedStores.add(row.store);
-      } else {
+      } else if (!sameData(map.get(row.id), row.data)) {
+        // 中身が同じなら書き戻さない。自動同期では「自分が送った行が
+        // Realtimeで返ってくる」「復帰のたびに全件pullする」が日常的に起きるため、
+        // ここで差分を見ないと毎回 localStorage 全書き換え＋再描画になる。
         map.set(row.id, row.data);
         changedStores.add(row.store);
       }
@@ -247,10 +295,13 @@
 
     const maps = {};
     const rows = [];
+    const sent = new Map(); // key -> 送信した updatedAt
+    const dropped = []; // 未知ストア: 送らずに捨てる
+
     for (const key of keys) {
       const q = meta.queue[key];
       if (!ADAPTERS[q.store]) {
-        delete meta.queue[key];
+        dropped.push(key);
         continue;
       }
       let data = null;
@@ -264,6 +315,7 @@
           data = null;
         }
       }
+      sent.set(key, q.updatedAt);
       rows.push({
         store: q.store,
         id: q.id,
@@ -274,17 +326,20 @@
       });
     }
 
-    if (!rows.length) {
-      saveMeta(meta);
-      return { pushed: 0 };
+    if (rows.length) {
+      const { error } = await getClient().from("sync_items").upsert(rows, { onConflict: "store,id" });
+      if (error) throw error;
     }
 
-    const { error } = await getClient().from("sync_items").upsert(rows, { onConflict: "store,id" });
-    if (error) throw error;
-
-    // 送信成功 → キューを空にする。
-    for (const key of keys) delete meta.queue[key];
-    saveMeta(meta);
+    // 送信の最中も notifySyncChange はキューへ書き込む。await 前に読んだ meta を
+    // そのまま保存すると、その間の変更を巻き戻して消してしまう。必ず読み直す。
+    const latest = loadMeta();
+    for (const key of dropped) delete latest.queue[key];
+    for (const [key, updatedAt] of sent) {
+      // 送信後に更新された行は残し、次のサイクルで新しい内容を送る。
+      if (latest.queue[key] && latest.queue[key].updatedAt === updatedAt) delete latest.queue[key];
+    }
+    saveMeta(latest);
     return { pushed: rows.length };
   }
 
@@ -302,8 +357,16 @@
     saveMeta(meta);
   }
 
+  // 適用結果を画面に反映する。render() は記録ページ・食材ページの双方が持つ。
+  function rerender() {
+    if (typeof render === "function") render();
+  }
+
   let syncing = false;
-  async function syncNow() {
+  // options.pushOnly: 送信だけ行い全件pullを省く。Realtimeが生きている間は
+  // 相手の変更が勝手に届くので、記録のたびに全件取得する必要がない。
+  async function syncNow(options) {
+    const pushOnly = Boolean(options && options.pushOnly);
     if (!CONFIGURED) return { ok: false, message: "同期は未設定です" };
     if (syncing) return { ok: false, message: "同期中です" };
     const user = await getUser();
@@ -316,13 +379,18 @@
     setStatus("syncing", "同期中…");
     try {
       const meta = loadMeta();
-      if (!meta.everLoggedIn) enqueueAll(); // 初回は既存データを全件投入
+      const firstSync = !meta.everLoggedIn;
+      if (firstSync) enqueueAll(); // 初回は既存データを全件投入
 
-      const rows = await readAllRemote();
-      const changed = applyRemoteRows(rows);
+      let changed = false;
+      // 初回だけは pushOnly でも必ず全件取り込む（相手の既存データと合流するため）。
+      if (!pushOnly || firstSync) {
+        const rows = await readAllRemote();
+        changed = applyRemoteRows(rows);
+      }
       const { pushed } = await pushQueue(user);
 
-      if (changed && typeof render === "function") render();
+      if (changed) rerender();
       setStatus("ok", `同期済み ${formatTime(new Date())}`);
       return { ok: true, changed, pushed };
     } catch (error) {
@@ -333,6 +401,78 @@
     } finally {
       syncing = false;
     }
+  }
+
+  // ------------------------------------------------------------------
+  // Realtime購読: 相手の端末の変更を、こちらが何も操作しなくても受け取る
+  // ------------------------------------------------------------------
+  let channel = null;
+  let realtimeReady = false;
+  let missedWhileDisconnected = false;
+
+  function startRealtime() {
+    if (!CONFIGURED || channel) return;
+    channel = getClient()
+      .channel("sync-items")
+      .on("postgres_changes", { event: "*", schema: "public", table: "sync_items" }, (payload) => {
+        const row = payload && payload.new;
+        // 削除は墓標（deleted=true のUPDATE）で表すため、new が無い通知は想定外。無視する。
+        if (!row || typeof row.store !== "string" || typeof row.id !== "string") return;
+        if (applyRemoteRows([row])) rerender();
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          realtimeReady = true;
+          // 切断中の変更は通知が来ない。復帰したら全件同期で取りこぼしを埋める。
+          if (missedWhileDisconnected) {
+            missedWhileDisconnected = false;
+            syncNow();
+          }
+          return;
+        }
+        if (realtimeReady) missedWhileDisconnected = true;
+        realtimeReady = false;
+      });
+  }
+
+  function stopRealtime() {
+    if (!channel) return;
+    try {
+      getClient().removeChannel(channel);
+    } catch (error) {
+      /* 破棄に失敗しても購読参照は捨てる */
+    }
+    channel = null;
+    realtimeReady = false;
+    missedWhileDisconnected = false;
+  }
+
+  // ------------------------------------------------------------------
+  // 自動送信: 変更が落ち着いてからまとめて送る
+  // ------------------------------------------------------------------
+  const FLUSH_DELAY_MS = 1500;
+  let flushTimer = null;
+
+  function scheduleFlush() {
+    if (!CONFIGURED || !currentUser) return;
+    if (flushTimer) clearTimeout(flushTimer);
+    flushTimer = setTimeout(() => {
+      flushTimer = null;
+      syncNow({ pushOnly: realtimeReady });
+    }, FLUSH_DELAY_MS);
+  }
+
+  // 復帰系のトリガー。Realtimeが切れていた間の変更をここでも拾う。
+  function initTriggers() {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && currentUser) syncNow();
+    });
+    window.addEventListener("online", () => {
+      if (currentUser) syncNow();
+    });
+    window.addEventListener("offline", () => {
+      setStatus("offline", "オフライン（復帰後に再試行）");
+    });
   }
 
   // ------------------------------------------------------------------
@@ -379,11 +519,24 @@
   }
 
   // クライアント初期化＋認証状態の監視を開始する（UIページから呼ぶ）。
+  let initialized = false;
   function init() {
-    if (!CONFIGURED) return;
+    if (!CONFIGURED || initialized) return;
+    initialized = true;
     getClient().auth.onAuthStateChange((_event, session) => {
-      notifyAuth((session && session.user) || null);
+      const user = (session && session.user) || null;
+      const wasLoggedIn = Boolean(currentUser);
+      notifyAuth(user);
+      if (!user) {
+        stopRealtime();
+        return;
+      }
+      startRealtime();
+      // ページを開いた直後とログイン直後だけ追いつく。
+      // トークン更新でもこのイベントは飛ぶため、状態が変わった時に限る。
+      if (!wasLoggedIn) syncNow();
     });
+    initTriggers();
   }
 
   window.EiyoSync = {
@@ -393,6 +546,7 @@
     signIn,
     signOut,
     syncNow,
+    queueLocalSnapshot,
     onAuth,
     onStatus,
   };

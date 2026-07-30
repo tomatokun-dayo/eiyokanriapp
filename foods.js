@@ -68,11 +68,6 @@ function initSync() {
     elements.syncStatus.textContent = status.message || "";
     if (status.state) elements.syncStatus.dataset.state = status.state;
   });
-
-  // ログイン済みならページを開いた時点で一度同期する。
-  EiyoSync.getUser().then((user) => {
-    if (user) EiyoSync.syncNow();
-  });
 }
 
 function render() {
@@ -532,6 +527,11 @@ function importBackup(file) {
       }
     }
     foodPreferenceStore.replaceAllPreferences(foodPrefs);
+
+    // 復元は replaceAll* を直に呼ぶため、個別の同期フックが通らない。
+    // 復元後の中身を丸ごと送信キューへ積み、相手の端末にも反映させる。
+    // 相手にしか無い記録は消さず残る（復元＝和集合。取り違えでの消失を避ける）。
+    if (window.EiyoSync) EiyoSync.queueLocalSnapshot();
 
     render();
     setBackupStatus(

@@ -514,6 +514,51 @@ h2 {
   font-size: 1rem;
 }
 
+/* ログイン後は自動同期に任せる状態。バーをカードから素の1行に落として主張を弱める。 */
+.sync-bar[data-mode="status"] {
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 2px 2px;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.sync-bar[data-mode="status"] .sync-bar-button {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.sync-bar[data-mode="status"] .sync-bar-button:hover {
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+
+.sync-bar-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.sync-bar[data-state="ok"] .sync-bar-dot {
+  background: var(--teal);
+}
+
+.sync-bar[data-state="syncing"] .sync-bar-dot,
+.sync-bar[data-state="pending"] .sync-bar-dot,
+.sync-bar[data-state="offline"] .sync-bar-dot {
+  background: var(--gold);
+}
+
+.sync-bar[data-state="error"] .sync-bar-dot {
+  background: var(--coral);
+}
+
 .sync-bar-status {
   color: var(--muted);
   font-size: 0.85rem;

@@ -46,6 +46,7 @@ const elements = {
   milkProductName: document.querySelector("#milk-product-name"),
   syncBar: document.querySelector("#sync-bar"),
   syncBarButton: document.querySelector("#sync-bar-button"),
+  syncBarIcon: document.querySelector("#sync-bar-icon"),
   syncBarLabel: document.querySelector("#sync-bar-label"),
   syncBarStatus: document.querySelector("#sync-bar-status"),
 };
@@ -76,7 +77,8 @@ function init() {
 }
 
 // 記録ページ上部の同期バー（Supabase接続情報がある場合のみ表示）。
-// ログイン前は「夫婦で同期する」、ログイン後は「今すぐ同期」ボタンになる。
+// 未ログイン時は目立つ「ログイン」ボタン。ログイン後は同期が自動で回るため、
+// 状態ドットと最終同期時刻だけの控えめな表示に切り替える（押す必要をなくす）。
 function initSyncBar() {
   if (!window.EiyoSync || !EiyoSync.CONFIGURED || !elements.syncBar) return;
 
@@ -91,17 +93,19 @@ function initSyncBar() {
 
   EiyoSync.onAuth((user) => {
     loggedIn = Boolean(user);
-    elements.syncBarLabel.textContent = loggedIn ? "今すぐ同期" : "ログイン";
+    elements.syncBar.dataset.mode = loggedIn ? "status" : "login";
+    elements.syncBarLabel.textContent = loggedIn ? "再同期" : "ログイン";
+    elements.syncBarButton.title = loggedIn ? "手動で同期し直す（通常は自動で同期されます）" : "";
+    elements.syncBarIcon.textContent = loggedIn ? "" : "🔄";
+    elements.syncBarIcon.classList.toggle("sync-bar-dot", loggedIn);
   });
 
   EiyoSync.onStatus((status) => {
     elements.syncBarStatus.textContent = status.message || "";
-    if (status.state) elements.syncBarStatus.dataset.state = status.state;
-  });
-
-  // ログイン済みならページを開いた時点で一度同期する。
-  EiyoSync.getUser().then((user) => {
-    if (user) EiyoSync.syncNow();
+    if (status.state) {
+      elements.syncBarStatus.dataset.state = status.state;
+      elements.syncBar.dataset.state = status.state;
+    }
   });
 }
 
