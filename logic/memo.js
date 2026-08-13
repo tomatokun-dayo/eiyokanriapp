@@ -1,8 +1,19 @@
 // 他アプリからコピペした食事メモを解析して、入力行にセットできる形へ変換する。
 // 対応形式（1行1品）:
-//   10倍がゆ50g / 卵黄15g / かぼちゃ 15グラム / にんじん小さじ1 / バナナ（量なし→既定量）
-//   ミルク100ml → ミルク欄への値として返す
+//   10倍がゆ50g / 卵黄15g / かぼちゃ 15グラム / 牛乳15ml / 卵黄 15 /
+//   にんじん小さじ1 / バナナ（量なし→既定量）
+//   ミルク100ml → ミルク欄への値として返す（育児用ミルク専用。牛乳は通常の食材として扱う）
 // 依存: foldKana (logic/units.js)
+
+// 量の単位として受け付ける表記。すべてグラムとして扱う。
+// ml/cc は液体用で 1ml = 1g とみなす（牛乳の比重は約1.03なので誤差3%。目安には十分）。
+// 空文字は「牛乳15」のように単位を省いた場合。
+const MEMO_AMOUNT_UNITS = new Set(["", "g", "グラム", "ml", "cc", "ミリリットル"]);
+
+function isMemoAmountUnit(suffix) {
+  // 全角→半角は normalizeMemoLine 済み。大文字(mL/CC)とひらがな(ぐらむ)をここで吸収する。
+  return MEMO_AMOUNT_UNITS.has(foldKana(String(suffix).toLowerCase()));
+}
 
 function normalizeMemoLine(rawLine) {
   return String(rawLine)
@@ -72,10 +83,17 @@ function parseMealMemo(text, foods) {
       unit = m[2] === "小さじ" ? "tsp" : "tbsp";
       amount = Number(m[3]);
     } else {
-      // 「10倍がゆ50g」「卵黄 15」「かぼちゃ15グラム」
-      m = line.match(/^(.*?)[\s]*([0-9]+(?:\.[0-9]+)?)[\s]*(?:g|グラム)[\s]*$/i) ||
-        line.match(/^(.*?)[\s]+([0-9]+(?:\.[0-9]+)?)[\s]*$/);
+      // 「10倍がゆ50g」「牛乳15ml」「かぼちゃ15グラム」「卵黄 15」
+      // 末尾の「数字＋単位」を切り出す。単位の文字種から数字を外しているので、
+      // 先頭に数字を持つ食材名（10倍がゆ）はここに引っかからない。
+      m = line.match(/^(.*?)[\s]*([0-9]+(?:\.[0-9]+)?)[\s]*([a-zA-Zぁ-ゖァ-ヶー]*)[\s]*$/);
       if (m && m[1]) {
+        if (!isMemoAmountUnit(m[3])) {
+          // 「牛乳15dl」のような未知の単位。ここで既定量に落とすと、
+          // 食材だけ一致して量が黙って別の値になる。認識できない行として返す。
+          unmatched.push(line);
+          continue;
+        }
         name = m[1];
         amount = Number(m[2]);
       } else {
