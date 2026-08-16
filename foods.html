@@ -40,28 +40,6 @@
       </nav>
 
       <main class="workspace">
-        <section class="panel db-panel" aria-labelledby="db-title">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">全食品から探す</p>
-              <h2 id="db-title">食品データベース</h2>
-            </div>
-          </div>
-          <p class="foods-note">
-            日本食品標準成分表の約2,500品から探して、マイ食材に追加できます。栄養値は自動で入ります。
-          </p>
-          <input
-            class="master-search-input"
-            id="db-search"
-            type="search"
-            placeholder="食品名で検索（例: 納豆）"
-            aria-label="食品データベースを検索"
-            autocomplete="off"
-          />
-          <p class="db-status" id="db-status" role="status"></p>
-          <div class="db-results" id="db-results"></div>
-        </section>
-
         <section class="panel foods-panel" aria-labelledby="my-foods-title">
           <div class="panel-heading">
             <div>
@@ -75,24 +53,34 @@
           </div>
           <p class="foods-note">
             記録ページの食材リストに出る食材です。状態を「未導入」「避ける」にすると、提案の候補から外れます。
+            検索すると、まだ持っていない食品は下に食品データベースの候補が出ます。
           </p>
           <div class="master-controls">
+            <input
+              class="master-search-input"
+              id="master-search"
+              type="search"
+              placeholder="食材を検索（例: 納豆）"
+              aria-label="マイ食材と食品データベースを検索"
+              autocomplete="off"
+            />
             <label class="compact-filter">
               <span>分類</span>
               <select id="category-filter">
                 <option value="all">すべて</option>
               </select>
             </label>
-            <input
-              class="master-search-input"
-              id="master-search"
-              type="search"
-              placeholder="マイ食材を検索"
-              aria-label="マイ食材を検索"
-              autocomplete="off"
-            />
           </div>
           <div class="master-list" id="master-list"></div>
+
+          <div class="db-section" id="db-section" hidden>
+            <h3 class="db-section-title" id="db-title">食品データベースから追加</h3>
+            <p class="foods-note">
+              日本食品標準成分表の約2,500品から追加できます。栄養値は自動で入ります。
+            </p>
+            <p class="db-status" id="db-status" role="status"></p>
+            <div class="db-results" id="db-results"></div>
+          </div>
         </section>
 
         <section class="panel custom-panel" aria-labelledby="custom-title">

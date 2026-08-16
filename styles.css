@@ -213,9 +213,24 @@ h2 {
   padding: 2px;
 }
 
-.db-panel,
 .custom-panel {
   grid-column: span 12;
+}
+
+/* マイ食材の下に続く、食品データベースの追加候補（検索中だけ出る） */
+.db-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+
+.db-section-title {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+
+.db-section .foods-note {
+  margin-bottom: 8px;
 }
 
 .db-status {
@@ -1781,7 +1796,6 @@ h2 {
   .suggestions-panel,
   .master-panel,
   .foods-panel,
-  .db-panel,
   .custom-panel,
   .chart-panel,
   .log-panel,

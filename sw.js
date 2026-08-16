@@ -1,6 +1,6 @@
 // アプリシェルのキャッシュ。ファイル更新時は CACHE_VERSION を上げると、
 // activate で古いキャッシュを破棄して自動的に入れ替わる。
-const CACHE_VERSION = "eiyokanri-v15";
+const CACHE_VERSION = "eiyokanri-v16";
 
 const APP_SHELL = [
   "./",

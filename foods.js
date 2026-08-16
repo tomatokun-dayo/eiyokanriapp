@@ -3,7 +3,7 @@ const elements = {
   categoryFilter: document.querySelector("#category-filter"),
   masterSearch: document.querySelector("#master-search"),
   masterList: document.querySelector("#master-list"),
-  dbSearch: document.querySelector("#db-search"),
+  dbSection: document.querySelector("#db-section"),
   dbStatus: document.querySelector("#db-status"),
   dbResults: document.querySelector("#db-results"),
   customForm: document.querySelector("#custom-food-form"),
@@ -75,6 +75,7 @@ function render() {
     elements.myFoodCount.textContent = String(FOOD_MASTER.length);
   }
   renderMasterList();
+  renderDbResults();
 }
 
 function renderCategoryFilter() {
@@ -90,9 +91,11 @@ function renderCategoryFilter() {
 function bindEvents() {
   elements.categoryFilter.addEventListener("change", renderMasterList);
 
-  elements.masterSearch.addEventListener("input", renderMasterList);
-
-  elements.dbSearch.addEventListener("input", renderDbResults);
+  // 検索欄はひとつ。マイ食材と食品データベースを同時に絞り込む
+  elements.masterSearch.addEventListener("input", () => {
+    renderMasterList();
+    renderDbResults();
+  });
 
   elements.customForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -155,34 +158,39 @@ function setDbStatus(text) {
 }
 
 function renderDbResults() {
-  const query = (elements.dbSearch?.value ?? "").trim();
+  const query = (elements.masterSearch?.value ?? "").trim();
   elements.dbResults.replaceChildren();
 
+  // 検索していないときは、マイ食材の一覧だけを見せる
+  if (elements.dbSection) elements.dbSection.hidden = query.length === 0;
   if (query.length === 0) {
     setDbStatus("");
     return;
   }
 
   const variants = buildQueryVariants(query);
+  // マイ食材に入っている食品は上のリストに出るので、候補からは外す。
+  // 成分表番号でも照合して、はじめから入っている食材（例: 絹ごし豆腐）の重複も避ける。
+  const ownedFoodNos = new Set(FOOD_MASTER.map((food) => food.source?.foodNo).filter(Boolean));
   const matches = FOOD_DB.filter((record) => {
+    if (foodById.has(`db_${record[0]}`) || ownedFoodNos.has(record[0])) return false;
     const folded = foldKana(record[1].toLowerCase());
     return variants.some((variant) => folded.includes(variant));
   });
 
   if (matches.length === 0) {
-    setDbStatus("見つかりませんでした。漢字・ひらがななど表記を変えて試してみてください（例: とうふ→豆腐）。");
+    setDbStatus("候補はありません。漢字・ひらがななど表記を変えて試してみてください（例: とうふ→豆腐）。");
     return;
   }
 
   setDbStatus(
     matches.length > DB_RESULT_LIMIT
-      ? `${matches.length}件見つかりました（先頭${DB_RESULT_LIMIT}件を表示）`
-      : `${matches.length}件見つかりました`,
+      ? `${matches.length}件の候補（先頭${DB_RESULT_LIMIT}件を表示）`
+      : `${matches.length}件の候補`,
   );
 
   for (const record of matches.slice(0, DB_RESULT_LIMIT)) {
     const [foodNo, rawName, group, energy] = record;
-    const foodId = `db_${foodNo}`;
 
     const row = document.createElement("div");
     row.className = "db-item";
@@ -203,13 +211,8 @@ function renderDbResults() {
     const addButton = document.createElement("button");
     addButton.type = "button";
     addButton.className = "ghost-button db-add";
-    if (foodById.has(foodId)) {
-      addButton.textContent = "追加済み";
-      addButton.disabled = true;
-    } else {
-      addButton.textContent = "＋追加";
-      addButton.addEventListener("click", () => addFoodFromDb(record));
-    }
+    addButton.textContent = "＋追加";
+    addButton.addEventListener("click", () => addFoodFromDb(record));
 
     row.append(info, addButton);
     elements.dbResults.appendChild(row);
@@ -238,7 +241,6 @@ function addFoodFromDb(record) {
 
   if (addCustomFood(food)) {
     render();
-    renderDbResults();
     setDbStatus(`「${food.name}」をマイ食材に追加しました。記録ページの食材リストに出ます。`);
   } else {
     setDbStatus("この食品はすでにマイ食材にあります。");
@@ -290,13 +292,13 @@ function addCustomFoodFromForm() {
 function renderMasterList() {
   const category = elements.categoryFilter.value;
   const query = (elements.masterSearch?.value ?? "").trim().toLowerCase();
+  // 検索欄は食品データベースと共通なので、かなの表記ゆれも同じ規則で吸収する
+  const variants = query === "" ? [] : buildQueryVariants(query);
   const foods = FOOD_MASTER.filter((food) => {
-    const matchesCategory = category === "all" || food.category === category;
-    const matchesQuery =
-      query === "" ||
-      food.name.toLowerCase().includes(query) ||
-      food.category.toLowerCase().includes(query);
-    return matchesCategory && matchesQuery;
+    if (category !== "all" && food.category !== category) return false;
+    if (variants.length === 0) return true;
+    const folded = foldKana(`${food.name} ${food.category}`.toLowerCase());
+    return variants.some((variant) => folded.includes(variant));
   });
 
   elements.masterList.replaceChildren();
@@ -304,7 +306,10 @@ function renderMasterList() {
   if (foods.length === 0) {
     const empty = document.createElement("p");
     empty.className = "master-empty";
-    empty.textContent = "該当する食材がありません。";
+    empty.textContent =
+      query === ""
+        ? "該当する食材がありません。"
+        : "マイ食材にはまだありません。下の候補から追加できます。";
     elements.masterList.appendChild(empty);
     return;
   }
@@ -374,7 +379,6 @@ function renderMasterList() {
         if (!confirmed) return;
         removeCustomFood(food.id);
         render();
-        renderDbResults();
       });
       main.appendChild(removeButton);
     }
