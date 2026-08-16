@@ -40,6 +40,28 @@
       </nav>
 
       <main class="workspace">
+        <section class="panel db-panel" aria-labelledby="db-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">全食品から探す</p>
+              <h2 id="db-title">食品データベース</h2>
+            </div>
+          </div>
+          <p class="foods-note">
+            日本食品標準成分表の約2,500品から探して、マイ食材に追加できます。栄養値は自動で入ります。
+          </p>
+          <input
+            class="master-search-input"
+            id="db-search"
+            type="search"
+            placeholder="食品名で検索（例: 納豆）"
+            aria-label="食品データベースを検索"
+            autocomplete="off"
+          />
+          <p class="db-status" id="db-status" role="status"></p>
+          <div class="db-results" id="db-results"></div>
+        </section>
+
         <section class="panel foods-panel" aria-labelledby="my-foods-title">
           <div class="panel-heading">
             <div>
@@ -71,28 +93,6 @@
             />
           </div>
           <div class="master-list" id="master-list"></div>
-        </section>
-
-        <section class="panel db-panel" aria-labelledby="db-title">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">全食品から探す</p>
-              <h2 id="db-title">食品データベース</h2>
-            </div>
-          </div>
-          <p class="foods-note">
-            日本食品標準成分表の約2,500品から探して、マイ食材に追加できます。栄養値は自動で入ります。
-          </p>
-          <input
-            class="master-search-input"
-            id="db-search"
-            type="search"
-            placeholder="食品名で検索（例: 納豆）"
-            aria-label="食品データベースを検索"
-            autocomplete="off"
-          />
-          <p class="db-status" id="db-status" role="status"></p>
-          <div class="db-results" id="db-results"></div>
         </section>
 
         <section class="panel custom-panel" aria-labelledby="custom-title">
