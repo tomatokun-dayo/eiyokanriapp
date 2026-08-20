@@ -67,3 +67,28 @@ function combineTotals(...totalsList) {
     ]),
   );
 }
+
+// その栄養素を「何が」稼いだかの内訳（ミルク＋食材を多い順）。
+// 記録ページの当日内訳と履歴ページの期間内訳で共用する。
+function getNutrientContributors(nutrientKey, entries, milkMl) {
+  const items = [];
+
+  if (milkMl > 0) {
+    items.push({ label: MILK_PRODUCT.name, value: milkNutrient(milkMl, nutrientKey) });
+  }
+
+  // 同じ食材を複数回記録していれば1行にまとめる
+  const byFood = new Map();
+  for (const entry of entries) {
+    const food = foodById.get(entry.foodId);
+    if (!food) continue;
+    const value = (food.per100[nutrientKey] * entry.amount) / 100;
+    const current = byFood.get(entry.foodId);
+    if (current) current.value += value;
+    else byFood.set(entry.foodId, { label: food.name, value });
+  }
+  items.push(...byFood.values());
+
+  // その栄養素を含まない食材は並べても情報にならないので除く
+  return items.filter((item) => item.value > 0).sort((a, b) => b.value - a.value);
+}

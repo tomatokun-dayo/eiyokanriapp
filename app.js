@@ -64,7 +64,8 @@ function syncToday() {
 }
 
 let selectedChartNutrients = new Set(["energy", "protein", "iron", "calcium"]);
-let selectedAgeTargetId = "6-8";
+// 月齢は履歴ページとも共有する（目安ラインが同じでないと見比べられない）。
+let selectedAgeTargetId = settingsStore.getAgeTargetId("6-8");
 let activeBatchRowIndex = null;
 
 function init() {
@@ -261,6 +262,7 @@ function updateBatchRowRemoveButtons(rows = getBatchRowElements()) {
 function bindEvents() {
   elements.ageStage.addEventListener("change", () => {
     selectedAgeTargetId = elements.ageStage.value;
+    settingsStore.setAgeTargetId(selectedAgeTargetId);
     render();
   });
 
@@ -825,31 +827,8 @@ function renderSuggestions(totals, entries) {
 // 開いている栄養素の内訳。render() のたびにDOMを作り直すため、開閉状態はここで保持する。
 const expandedNutrients = new Set();
 
-// 「何が多かったのか」を答えるための内訳。ミルクと離乳食を同列に並べ、多い順に返す。
+// 内訳に並べる品数の上限。これを超えた分は「ほか◯品」にまとめる。
 const CONTRIBUTOR_LIMIT = 6;
-
-function getNutrientContributors(nutrientKey, entries, milkMl) {
-  const items = [];
-
-  if (milkMl > 0) {
-    items.push({ label: MILK_PRODUCT.name, value: milkNutrient(milkMl, nutrientKey) });
-  }
-
-  // 同じ食材を複数回記録していれば1行にまとめる
-  const byFood = new Map();
-  for (const entry of entries) {
-    const food = foodById.get(entry.foodId);
-    if (!food) continue;
-    const value = (food.per100[nutrientKey] * entry.amount) / 100;
-    const current = byFood.get(entry.foodId);
-    if (current) current.value += value;
-    else byFood.set(entry.foodId, { label: food.name, value });
-  }
-  items.push(...byFood.values());
-
-  // その栄養素を含まない食材は並べても情報にならないので除く
-  return items.filter((item) => item.value > 0).sort((a, b) => b.value - a.value);
-}
 
 function renderNutrientContributors(container, nutrient, entries, milkMl, total) {
   container.replaceChildren();
@@ -1147,23 +1126,10 @@ function renderMilk() {
 }
 
 function buildTrendData(entries) {
-  const [year, month, day] = todayKey.split("-").map(Number);
-  const today = new Date(year, month - 1, day);
-  const allFeeds = milkStore.getAllFeeds();
-
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = toDateKey(addDays(today, index - 6));
-    const entriesForDate = entries.filter((entry) => entry.date === date);
-    // グラフも目安ラインと同じ基準にするため、ミルク分を合流させる。
-    const milkMlForDate = allFeeds
-      .filter((feed) => feed.date === date)
-      .reduce((sum, feed) => sum + feed.ml, 0);
-
-    return {
-      date,
-      totals: combineTotals(calculateTotals(entriesForDate), calculateMilkTotals(milkMlForDate)),
-    };
-  });
+  const today = parseDateKey(todayKey);
+  const dates = Array.from({ length: 7 }, (_, index) => toDateKey(addDays(today, index - 6)));
+  // 履歴ページと同じ日別集計を使う（ミルク分を合流させた合計が入る）。
+  return buildDailySummaries(dates, entries, milkStore.getAllFeeds());
 }
 
 function renderTrendCharts(data) {
@@ -1206,112 +1172,14 @@ function renderTrendCharts(data) {
 }
 
 function renderTrendChart(canvas, data, nutrientKey) {
-  const rect = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  const width = Math.max(240, Math.floor(rect.width * dpr));
-  const height = Math.max(160, Math.floor(rect.height * dpr));
-
-  canvas.width = width;
-  canvas.height = height;
-
-  const ctx = canvas.getContext("2d");
-  ctx.scale(dpr, dpr);
-
-  const cssWidth = width / dpr;
-  const cssHeight = height / dpr;
   const nutrient = nutrientByKey.get(nutrientKey);
-  const values = data.map((day) => day.totals[nutrientKey] || 0);
-  const target = getTargetValue(nutrientKey);
-  const maxValue = Math.max(target, ...values) * 1.18;
-  const chart = {
-    left: 58,
-    right: 12,
-    top: 18,
-    bottom: 36,
-  };
-  chart.width = cssWidth - chart.left - chart.right;
-  chart.height = cssHeight - chart.top - chart.bottom;
-
-  ctx.clearRect(0, 0, cssWidth, cssHeight);
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, cssWidth, cssHeight);
-
-  drawGrid(ctx, chart, cssWidth, nutrient, maxValue, target);
-
-  const barWidth = Math.max(12, chart.width / data.length - 12);
-  const points = data.map((day, index) => {
-    const x = chart.left + (chart.width / data.length) * index + chart.width / data.length / 2;
-    const barHeight = (values[index] / maxValue) * chart.height;
-    const y = chart.top + chart.height - barHeight;
-
-    ctx.fillStyle = day.date === todayKey ? nutrient.color : "rgba(36, 120, 106, 0.28)";
-    roundRect(ctx, x - barWidth / 2, y, barWidth, barHeight, 6);
-    ctx.fill();
-
-    const label = day.date === todayKey ? "今日" : formatShortDate(day.date);
-    ctx.fillStyle = "#68746c";
-    ctx.font = "12px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(label, x, chart.top + chart.height + 24);
-
-    return { x, y };
+  drawDailyBarChart(canvas, {
+    values: data.map((day) => day.totals[nutrientKey] || 0),
+    labels: data.map((day) => (day.date === todayKey ? "今日" : formatShortDate(day.date))),
+    nutrient,
+    target: getTargetValue(nutrientKey),
+    highlightIndex: data.findIndex((day) => day.date === todayKey),
   });
-
-  ctx.beginPath();
-  points.forEach((point, index) => {
-    if (index === 0) ctx.moveTo(point.x, point.y);
-    else ctx.lineTo(point.x, point.y);
-  });
-  ctx.strokeStyle = nutrient.color;
-  ctx.lineWidth = 3;
-  ctx.stroke();
-
-  for (const point of points) {
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = "#ffffff";
-    ctx.fill();
-    ctx.strokeStyle = nutrient.color;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
-}
-
-function drawGrid(ctx, chart, cssWidth, nutrient, maxValue, target) {
-  ctx.strokeStyle = "#e2e9e3";
-  ctx.lineWidth = 1;
-  ctx.fillStyle = "#68746c";
-  ctx.font = "12px system-ui, sans-serif";
-  ctx.textAlign = "right";
-
-  for (let index = 0; index <= 3; index += 1) {
-    const value = (maxValue / 3) * index;
-    const y = chart.top + chart.height - (value / maxValue) * chart.height;
-    ctx.beginPath();
-    ctx.moveTo(chart.left, y);
-    ctx.lineTo(cssWidth - chart.right, y);
-    ctx.stroke();
-    ctx.fillText(formatValue(value, nutrient), chart.left - 8, y + 4);
-  }
-
-  const targetY = chart.top + chart.height - (target / maxValue) * chart.height;
-  ctx.setLineDash([5, 5]);
-  ctx.strokeStyle = "rgba(218, 111, 80, 0.48)";
-  ctx.beginPath();
-  ctx.moveTo(chart.left, targetY);
-  ctx.lineTo(cssWidth - chart.right, targetY);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  ctx.fillStyle = "#b65d43";
-  ctx.font = "11px system-ui, sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText("目安ライン", chart.left + 5, Math.max(chart.top + 12, targetY - 6));
-}
-
-function formatShortDate(dateKey) {
-  const [, month, day] = dateKey.split("-");
-  return `${Number(month)}/${Number(day)}`;
 }
 
 function renderPlate(entries) {
@@ -1384,17 +1252,6 @@ function renderPlate(entries) {
   ctx.fillStyle = "#68746c";
   ctx.font = "12px system-ui, sans-serif";
   ctx.fillText(entries.length > 0 ? `${entries.length}品の食材` : "未記録", 18, 50);
-}
-
-function roundRect(ctx, x, y, width, height, radius) {
-  const safeRadius = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + safeRadius, y);
-  ctx.arcTo(x + width, y, x + width, y + height, safeRadius);
-  ctx.arcTo(x + width, y + height, x, y + height, safeRadius);
-  ctx.arcTo(x, y + height, x, y, safeRadius);
-  ctx.arcTo(x, y, x + width, y, safeRadius);
-  ctx.closePath();
 }
 
 init();

@@ -1746,6 +1746,128 @@ h2 {
   outline-offset: 2px;
 }
 
+/* ---- 履歴ページ ---- */
+.period-panel {
+  grid-column: span 12;
+}
+
+/* .totals-panel と併用する。履歴では横に並ぶ相手が「よく食べた食材」なので幅を広く取る */
+.averages-panel {
+  grid-column: span 6;
+}
+
+.ranking-panel {
+  grid-column: span 6;
+}
+
+.period-list-panel {
+  grid-column: span 12;
+}
+
+.period-type-field {
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+
+.period-nav {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 10px;
+}
+
+.period-step {
+  min-width: 44px;
+  padding: 0;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.period-step[disabled] {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.period-current {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  text-align: center;
+}
+
+.period-current strong {
+  font-size: 1.05rem;
+  font-weight: 820;
+}
+
+.period-current span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.food-ranking {
+  display: grid;
+  gap: 8px;
+}
+
+.ranking-item {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.ranking-name {
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.ranking-detail,
+.period-item-detail {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.period-list {
+  display: grid;
+  gap: 8px;
+}
+
+.period-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.period-item[aria-current="true"] {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 2px rgba(36, 120, 106, 0.14);
+}
+
+.period-item-label {
+  font-weight: 780;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 1160px) {
   .intake-panel,
   .totals-panel {
@@ -1762,7 +1884,9 @@ h2 {
   .suggestions-panel,
   .summary-panel,
   .sync-panel,
-  .backup-panel {
+  .backup-panel,
+  .averages-panel,
+  .ranking-panel {
     grid-column: span 12;
   }
 }
@@ -1801,8 +1925,18 @@ h2 {
   .log-panel,
   .sync-panel,
   .backup-panel,
-  .milk-panel {
+  .milk-panel,
+  .period-panel,
+  .averages-panel,
+  .ranking-panel,
+  .period-list-panel {
     grid-column: auto;
+  }
+
+  /* タブが3つになると 20px の左右余白では狭い端末で折り返すため、等幅に詰める */
+  .page-nav-link {
+    flex: 1;
+    padding: 0 10px;
   }
 
   .panel {
