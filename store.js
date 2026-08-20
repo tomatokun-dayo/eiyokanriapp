@@ -3,6 +3,7 @@ const MILK_STORAGE_KEY = "eiyokanri.milk.v1";
 const FOOD_STATE_STORAGE_KEY = "eiyokanri.foodStates.v1";
 const MEAL_TEMPLATE_STORAGE_KEY = "eiyokanri.mealTemplates.v1";
 const FOOD_PREF_STORAGE_KEY = "eiyokanri.foodPrefs.v1";
+const SETTINGS_STORAGE_KEY = "eiyokanri.settings.v1";
 const BACKUP_VERSION = 1;
 
 const FOOD_STATES = [
@@ -250,6 +251,45 @@ function createFoodPreferenceStore() {
 function loadStoredFoodPreferences() {
   try {
     const stored = window.localStorage.getItem(FOOD_PREF_STORAGE_KEY);
+    if (!stored) return {};
+
+    const parsed = JSON.parse(stored);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+// 画面の設定（いまは月齢区分だけ）。記録ページと履歴ページで同じ目安を使うため、
+// ページをまたいで残す必要がある。id単位の同期対象ではないので端末ローカルに置く。
+const settingsStore = createSettingsStore();
+
+function createSettingsStore() {
+  let settings = loadStoredSettings();
+
+  function persistSettings() {
+    try {
+      window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    } catch (error) {
+      // Keep the in-memory settings usable when localStorage is blocked or full.
+    }
+  }
+
+  return {
+    getAgeTargetId(fallback) {
+      return ageTargetById.has(settings.ageTargetId) ? settings.ageTargetId : fallback;
+    },
+    setAgeTargetId(id) {
+      if (!ageTargetById.has(id)) return;
+      settings = { ...settings, ageTargetId: id };
+      persistSettings();
+    },
+  };
+}
+
+function loadStoredSettings() {
+  try {
+    const stored = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (!stored) return {};
 
     const parsed = JSON.parse(stored);

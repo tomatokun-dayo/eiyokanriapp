@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      Content Security Policy（XSSの二重防御。GitHub Pagesはヘッダーを付けられないため meta で指定）。
+      connect-src の Supabase URL は sync-config.js と一致させること（同期の https/wss 接続先）。
+      style-src に 'unsafe-inline' が要るのは、描画コードが style="..." 属性を使うため。
+      worker-src blob: は将来の Supabase Realtime（オプトインのkeepAliveワーカー）用の許可。
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://ocjjohcbyqtfgypjujow.supabase.co wss://ocjjohcbyqtfgypjujow.supabase.co; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>履歴 | 離乳食栄養メモ</title>
+    <meta name="theme-color" content="#24786a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="離乳食メモ" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <p class="eyebrow">ふりかえり</p>
+            <h1>履歴</h1>
+          </div>
+        </div>
+        <div class="baby-summary">
+          <label class="age-field">
+            <span>月齢</span>
+            <select id="age-stage"></select>
+          </label>
+          <strong id="today-label">今日</strong>
+        </div>
+      </header>
+
+      <nav class="page-nav" aria-label="ページ切り替え">
+        <a class="page-nav-link" href="./">📝 記録</a>
+        <a class="page-nav-link" href="history.html" aria-current="page">📊 履歴</a>
+        <a class="page-nav-link" href="foods.html">🥕 食材</a>
+      </nav>
+
+      <div class="sync-bar" id="sync-bar" data-mode="login" hidden>
+        <button class="sync-bar-button" id="sync-bar-button" type="button">
+          <span class="sync-bar-icon" id="sync-bar-icon" aria-hidden="true">🔄</span>
+          <span id="sync-bar-label">ログイン</span>
+        </button>
+        <span class="sync-bar-status" id="sync-bar-status" role="status"></span>
+      </div>
+
+      <main class="workspace">
+        <section class="panel period-panel" aria-labelledby="period-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">期間</p>
+              <h2 id="period-title" class="visually-hidden">見る期間</h2>
+            </div>
+          </div>
+          <fieldset class="period-type-field">
+            <legend class="visually-hidden">まとめ方</legend>
+            <div class="segmented" id="period-type-options"></div>
+          </fieldset>
+          <div class="period-nav">
+            <button class="ghost-button period-step" id="period-prev" type="button" aria-label="前の期間">‹</button>
+            <div class="period-current">
+              <strong id="period-label">-</strong>
+              <span id="period-relation"></span>
+            </div>
+            <button class="ghost-button period-step" id="period-next" type="button" aria-label="次の期間">›</button>
+          </div>
+        </section>
+
+        <section class="panel summary-panel" aria-labelledby="period-summary-title">
+          <div class="summary-head">
+            <p class="eyebrow">この期間</p>
+            <h2 id="period-summary-title" class="visually-hidden">この期間のまとめ</h2>
+          </div>
+          <div class="summary-stats" id="period-stats"></div>
+          <p class="summary-message" id="period-message"></p>
+          <p class="summary-note" id="period-note"></p>
+        </section>
+
+        <section class="panel totals-panel averages-panel" aria-labelledby="averages-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">1日平均</p>
+              <h2 id="averages-title">栄養の平均</h2>
+            </div>
+            <div class="score-pill">
+              <span id="recorded-days">0</span>
+              <small>日分</small>
+            </div>
+          </div>
+          <div class="totals-list" id="averages-list"></div>
+          <p class="summary-note">
+            平均は記録がある日だけで計算します（未記録の日は母数に入れません）。行をタップすると、その期間に何が効いていたかの内訳が開きます。
+          </p>
+        </section>
+
+        <section class="panel chart-panel" aria-labelledby="history-trend-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">日ごと</p>
+              <h2 id="history-trend-title">推移</h2>
+            </div>
+          </div>
+          <fieldset class="chart-controls" aria-label="表示する栄養素">
+            <legend>表示</legend>
+            <div class="nutrient-toggles" id="chart-nutrients"></div>
+          </fieldset>
+          <div class="trend-grid" id="history-trend-grid"></div>
+        </section>
+
+        <section class="panel ranking-panel" aria-labelledby="ranking-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">この期間</p>
+              <h2 id="ranking-title">よく食べた食材</h2>
+            </div>
+          </div>
+          <div class="food-ranking" id="food-ranking"></div>
+        </section>
+
+        <section class="panel period-list-panel" aria-labelledby="period-list-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">これまで</p>
+              <h2 id="period-list-title">期間の一覧</h2>
+            </div>
+          </div>
+          <p class="summary-note">記録のある最初の日から並べています。タップするとその期間を開きます。</p>
+          <div class="period-list" id="period-list"></div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <p class="disclaimer">
+          このアプリの目安は家庭内の参考情報で、医療・栄養指導の代替ではありません。気になることがあれば、かかりつけ医や保健師にご相談ください。
+        </p>
+        <p class="footer-links">
+          <span>参考</span>
+          <a
+            href="https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/kenkou/eiyou/syokuji_kijyun.html"
+            target="_blank"
+            rel="noreferrer"
+          >
+            厚生労働省 日本人の食事摂取基準
+          </a>
+        </p>
+      </footer>
+    </div>
+
+    <script src="data/food-master.js" defer></script>
+    <script src="custom-foods.js" defer></script>
+    <script src="data/age-targets.js" defer></script>
+    <script src="logic/nutrition.js" defer></script>
+    <script src="logic/history.js" defer></script>
+    <script src="store.js" defer></script>
+    <script src="chart.js" defer></script>
+    <script src="sync-config.js" defer></script>
+    <script src="vendor/supabase.js" defer></script>
+    <script src="sync.js" defer></script>
+    <script src="history.js" defer></script>
+    <script src="register-sw.js" defer></script>
+  </body>
+</html>
