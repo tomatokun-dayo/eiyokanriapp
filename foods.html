@@ -2,223 +2,67 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <!--
-      Content Security Policy（XSSの二重防御。GitHub Pagesはヘッダーを付けられないため meta で指定）。
-      connect-src の Supabase URL は sync-config.js と一致させること（同期の https/wss 接続先）。
-      style-src に 'unsafe-inline' が要るのは、描画コードが style="..." 属性を使うため。
-      worker-src blob: は将来の Supabase Realtime（オプトインのkeepAliveワーカー）用の許可。
-    -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://ocjjohcbyqtfgypjujow.supabase.co wss://ocjjohcbyqtfgypjujow.supabase.co; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>食材管理 | 離乳食栄養メモ</title>
+    <title>離乳食栄養メモ（終了しました）</title>
     <meta name="theme-color" content="#24786a" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="離乳食メモ" />
     <link rel="manifest" href="manifest.json" />
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="styles.css" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f7f2;
+        --card: #ffffff;
+        --text: #1f2a27;
+        --muted: #5b6b66;
+        --accent: #24786a;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #141a18;
+          --card: #1e2623;
+          --text: #e6ece9;
+          --muted: #a3b2ad;
+          --accent: #5fbfab;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px 16px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+        line-height: 1.8;
+      }
+      main {
+        width: 100%;
+        max-width: 420px;
+        background: var(--card);
+        border-radius: 16px;
+        padding: 28px 24px;
+        border-top: 6px solid var(--accent);
+      }
+      h1 { margin: 0 0 12px; font-size: 1.25rem; }
+      p { margin: 0 0 12px; }
+      .note { color: var(--muted); font-size: 0.9rem; margin: 0; }
+    </style>
   </head>
   <body>
-    <div class="app-shell">
-      <header class="topbar">
-        <div class="brand">
-          <span class="brand-mark" aria-hidden="true"></span>
-          <div>
-            <p class="eyebrow">しょくざい</p>
-            <h1>食材管理</h1>
-          </div>
-        </div>
-      </header>
-
-      <nav class="page-nav" aria-label="ページ切り替え">
-        <a class="page-nav-link" href="./">📝 記録</a>
-        <a class="page-nav-link" href="history.html">📊 履歴</a>
-        <a class="page-nav-link" href="foods.html" aria-current="page">🥕 食材</a>
-      </nav>
-
-      <main class="workspace">
-        <section class="panel foods-panel" aria-labelledby="my-foods-title">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">マイ食材</p>
-              <h2 id="my-foods-title">使える食材</h2>
-            </div>
-            <div class="score-pill">
-              <span id="my-food-count">0</span>
-              <small>品</small>
-            </div>
-          </div>
-          <p class="foods-note">
-            記録ページの食材リストに出る食材です。状態を「未導入」「避ける」にすると、提案の候補から外れます。
-            検索すると、まだ持っていない食品は下に食品データベースの候補が出ます。
-          </p>
-          <div class="master-controls">
-            <input
-              class="master-search-input"
-              id="master-search"
-              type="search"
-              placeholder="食材を検索（例: 納豆）"
-              aria-label="マイ食材と食品データベースを検索"
-              autocomplete="off"
-            />
-            <label class="compact-filter">
-              <span>分類</span>
-              <select id="category-filter">
-                <option value="all">すべて</option>
-              </select>
-            </label>
-          </div>
-          <div class="master-list" id="master-list"></div>
-
-          <div class="db-section" id="db-section" hidden>
-            <h3 class="db-section-title" id="db-title">食品データベースから追加</h3>
-            <p class="foods-note">
-              日本食品標準成分表の約2,500品から追加できます。栄養値は自動で入ります。
-            </p>
-            <p class="db-status" id="db-status" role="status"></p>
-            <div class="db-results" id="db-results"></div>
-          </div>
-        </section>
-
-        <section class="panel custom-panel" aria-labelledby="custom-title">
-          <details class="panel-details" id="custom-details">
-            <summary>
-              <span class="eyebrow">手入力</span>
-              <h2 id="custom-title">市販品などを手入力で追加</h2>
-            </summary>
-            <div class="panel-details-body">
-              <p class="foods-note">
-                市販のベビーフードなど、データベースにない食品はパッケージの栄養成分表示（100gあたり）を写して追加できます。
-              </p>
-              <form class="custom-food-form" id="custom-food-form">
-                <label class="custom-field">
-                  <span>名前</span>
-                  <input id="custom-name" type="text" required placeholder="例: ○○社 鶏レバーペースト" />
-                </label>
-                <label class="custom-field">
-                  <span>分類</span>
-                  <select id="custom-category">
-                    <option value="主食">主食</option>
-                    <option value="野菜">野菜</option>
-                    <option value="たんぱく" selected>たんぱく</option>
-                    <option value="果物">果物</option>
-                    <option value="乳製品">乳製品</option>
-                    <option value="その他">その他</option>
-                  </select>
-                </label>
-                <div class="custom-nutrients">
-                  <label class="custom-field">
-                    <span>エネルギー (kcal)</span>
-                    <input id="custom-energy" type="number" min="0" step="1" required placeholder="0" />
-                  </label>
-                  <label class="custom-field">
-                    <span>たんぱく質 (g)</span>
-                    <input id="custom-protein" type="number" min="0" step="0.1" placeholder="0" />
-                  </label>
-                  <label class="custom-field">
-                    <span>脂質 (g)</span>
-                    <input id="custom-fat" type="number" min="0" step="0.1" placeholder="0" />
-                  </label>
-                  <label class="custom-field">
-                    <span>炭水化物 (g)</span>
-                    <input id="custom-carbs" type="number" min="0" step="0.1" placeholder="0" />
-                  </label>
-                  <label class="custom-field">
-                    <span>鉄 (mg)</span>
-                    <input id="custom-iron" type="number" min="0" step="0.1" placeholder="0" />
-                  </label>
-                  <label class="custom-field">
-                    <span>カルシウム (mg)</span>
-                    <input id="custom-calcium" type="number" min="0" step="1" placeholder="0" />
-                  </label>
-                </div>
-                <button class="primary-button" type="submit">マイ食材に追加</button>
-                <p class="custom-status" id="custom-status" role="status"></p>
-              </form>
-            </div>
-          </details>
-        </section>
-
-        <section class="panel sync-panel" id="sync-panel" aria-labelledby="sync-title" hidden>
-          <details class="panel-details" id="sync-details">
-            <summary>
-              <span class="eyebrow">同期</span>
-              <h2 id="sync-title">夫婦で共有</h2>
-            </summary>
-            <div class="panel-details-body">
-              <p class="sync-note">
-                ログインすると、記録がもう一方の端末とも共有されます。データは自分たちのSupabaseプロジェクトにのみ保存されます。
-              </p>
-              <div class="sync-signed-out" id="sync-signed-out" hidden>
-                <button class="primary-button" id="sync-login" type="button">Googleでログイン</button>
-              </div>
-              <div class="sync-signed-in" id="sync-signed-in" hidden>
-                <p class="sync-user" id="sync-user"></p>
-                <div class="sync-actions">
-                  <button class="ghost-button" id="sync-now" type="button">今すぐ同期</button>
-                  <button class="ghost-button" id="sync-logout" type="button">ログアウト</button>
-                </div>
-              </div>
-              <p class="sync-status" id="sync-status" role="status"></p>
-            </div>
-          </details>
-        </section>
-
-        <section class="panel backup-panel" aria-labelledby="backup-title">
-          <details class="panel-details" id="backup-details">
-            <summary>
-              <span class="eyebrow">バックアップ</span>
-              <h2 id="backup-title">データ管理</h2>
-            </summary>
-            <div class="panel-details-body">
-              <p class="backup-note">
-                記録はこの端末のブラウザ内にのみ保存されます。機種変更やブラウザの変更に備えて、ときどき書き出しておくと安心です。
-              </p>
-              <div class="backup-actions">
-                <button class="ghost-button" id="export-button" type="button">JSONで書き出す</button>
-                <label class="ghost-button backup-import">
-                  読み込む
-                  <input id="import-input" type="file" accept=".json,application/json" hidden />
-                </label>
-              </div>
-              <p class="backup-status" id="backup-status" role="status"></p>
-            </div>
-          </details>
-        </section>
-      </main>
-
-      <footer class="site-footer">
-        <p class="disclaimer">
-          このアプリの目安は家庭内の参考情報で、医療・栄養指導の代替ではありません。気になることがあれば、かかりつけ医や保健師にご相談ください。
-        </p>
-        <p class="footer-links">
-          <span>参考</span>
-          <a
-            href="https://fooddb.mext.go.jp/"
-            target="_blank"
-            rel="noreferrer"
-          >
-            文部科学省 食品成分データベース
-          </a>
-        </p>
-      </footer>
-    </div>
-
-    <script src="data/food-master.js" defer></script>
-    <script src="custom-foods.js" defer></script>
-    <script src="data/age-targets.js" defer></script>
-    <script src="data/fooddb.js" defer></script>
-    <script src="logic/nutrition.js" defer></script>
-    <script src="logic/units.js" defer></script>
-    <script src="store.js" defer></script>
-    <script src="sync-config.js" defer></script>
-    <script src="vendor/supabase.js" defer></script>
-    <script src="sync.js" defer></script>
-    <script src="foods.js" defer></script>
-    <script src="register-sw.js" defer></script>
+    <main>
+      <h1>離乳食栄養メモは終了しました</h1>
+      <p>これまで使っていただき、ありがとうございました。</p>
+      <p>このアプリは役目を終えたため、提供を終了しました。ホーム画面のアイコンは削除して大丈夫です。</p>
+      <p class="note">
+        この端末に保存された記録は自動では消えません。消したい場合は、ブラウザの設定からこのサイトのデータを削除してください。
+      </p>
+    </main>
+    <script src="register-sw.js"></script>
   </body>
 </html>

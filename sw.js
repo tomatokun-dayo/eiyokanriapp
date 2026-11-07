@@ -1,75 +1,26 @@
-// アプリシェルのキャッシュ。ファイル更新時は CACHE_VERSION を上げると、
-// activate で古いキャッシュを破棄して自動的に入れ替わる。
-const CACHE_VERSION = "eiyokanri-v17";
+// 【アプリ終了用】自己解除する Service Worker。
+//
+// このアプリは提供を終了した。旧バージョンの Service Worker はアプリ一式を
+// 端末にキャッシュしているため、GitHub Pages を止めてもホーム画面から動き続けてしまう。
+// ブラウザが sw.js の更新を検知するとこのファイルに入れ替わり、
+//   1. 保存済みのキャッシュをすべて削除
+//   2. Service Worker 自身の登録を解除
+//   3. 開いている画面を再読み込み（ネットワークから「終了のお知らせ」を表示）
+// を行う。fetch ハンドラは持たないので、以降の通信はすべて素通しになる。
+// 端末内の記録データ（localStorage）には触れない。
 
-const APP_SHELL = [
-  "./",
-  "index.html",
-  "foods.html",
-  "history.html",
-  "styles.css",
-  "app.js",
-  "foods.js",
-  "history.js",
-  "chart.js",
-  "custom-foods.js",
-  "store.js",
-  "sync-config.js",
-  "sync.js",
-  "register-sw.js",
-  "vendor/supabase.js",
-  "logic/units.js",
-  "logic/memo.js",
-  "logic/nutrition.js",
-  "logic/history.js",
-  "logic/suggestions.js",
-  "data/food-master.js",
-  "data/age-targets.js",
-  "data/fooddb.js",
-  "manifest.json",
-  "icons/icon-192.png",
-  "icons/icon-512.png",
-  "icons/apple-touch-icon.png",
-];
-
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE_VERSION)
-      .then((cache) => cache.addAll(APP_SHELL))
-      .then(() => self.skipWaiting()),
-  );
+self.addEventListener("install", () => {
+  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_VERSION).map((key) => caches.delete(key))))
-      .then(() => self.clients.claim()),
-  );
-});
-
-// 同一オリジンのGETは stale-while-revalidate:
-// キャッシュがあれば即返しつつ裏で更新、なければ取得してキャッシュ。
-self.addEventListener("fetch", (event) => {
-  const request = event.request;
-  if (request.method !== "GET") return;
-  if (new URL(request.url).origin !== self.location.origin) return;
-
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request)
-        .then((response) => {
-          if (response && response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() => cached);
-
-      return cached || network;
-    }),
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+      await self.registration.unregister();
+      const clients = await self.clients.matchAll({ type: "window" });
+      await Promise.all(clients.map((client) => client.navigate(client.url).catch(() => {})));
+    })(),
   );
 });
