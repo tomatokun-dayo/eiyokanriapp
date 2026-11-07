@@ -2,245 +2,67 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <!--
-      Content Security Policy（XSSの二重防御。GitHub Pagesはヘッダーを付けられないため meta で指定）。
-      connect-src の Supabase URL は sync-config.js と一致させること（同期の https/wss 接続先）。
-      style-src に 'unsafe-inline' が要るのは、描画コードが style="..." 属性を使うため。
-      worker-src blob: は将来の Supabase Realtime（オプトインのkeepAliveワーカー）用の許可。
-    -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://ocjjohcbyqtfgypjujow.supabase.co wss://ocjjohcbyqtfgypjujow.supabase.co; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>離乳食栄養メモ</title>
+    <title>離乳食栄養メモ（終了しました）</title>
     <meta name="theme-color" content="#24786a" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="離乳食メモ" />
     <link rel="manifest" href="manifest.json" />
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="styles.css" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f7f2;
+        --card: #ffffff;
+        --text: #1f2a27;
+        --muted: #5b6b66;
+        --accent: #24786a;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #141a18;
+          --card: #1e2623;
+          --text: #e6ece9;
+          --muted: #a3b2ad;
+          --accent: #5fbfab;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px 16px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+        line-height: 1.8;
+      }
+      main {
+        width: 100%;
+        max-width: 420px;
+        background: var(--card);
+        border-radius: 16px;
+        padding: 28px 24px;
+        border-top: 6px solid var(--accent);
+      }
+      h1 { margin: 0 0 12px; font-size: 1.25rem; }
+      p { margin: 0 0 12px; }
+      .note { color: var(--muted); font-size: 0.9rem; margin: 0; }
+    </style>
   </head>
   <body>
-    <div class="app-shell">
-      <header class="topbar">
-        <div class="brand">
-          <span class="brand-mark" aria-hidden="true"></span>
-          <div>
-            <p class="eyebrow">きろく</p>
-            <h1>離乳食栄養メモ</h1>
-          </div>
-        </div>
-        <div class="baby-summary">
-          <label class="age-field">
-            <span>月齢</span>
-            <select id="age-stage"></select>
-          </label>
-          <strong id="today-label">今日</strong>
-        </div>
-      </header>
-
-      <nav class="page-nav" aria-label="ページ切り替え">
-        <a class="page-nav-link" href="./" aria-current="page">📝 記録</a>
-        <a class="page-nav-link" href="history.html">📊 履歴</a>
-        <a class="page-nav-link" href="foods.html">🥕 食材</a>
-      </nav>
-
-      <div class="sync-bar" id="sync-bar" data-mode="login" hidden>
-        <button class="sync-bar-button" id="sync-bar-button" type="button">
-          <span class="sync-bar-icon" id="sync-bar-icon" aria-hidden="true">🔄</span>
-          <span id="sync-bar-label">ログイン</span>
-        </button>
-        <span class="sync-bar-status" id="sync-bar-status" role="status"></span>
-      </div>
-
-      <main class="workspace">
-        <section class="panel summary-panel" aria-labelledby="summary-title">
-          <div class="summary-head">
-            <p class="eyebrow">今日のまとめ</p>
-            <h2 id="summary-title" class="visually-hidden">今日のまとめ</h2>
-          </div>
-          <div class="summary-stats" id="summary-stats"></div>
-          <p class="summary-message" id="summary-message"></p>
-          <p class="summary-note">％は1日の摂取目安に対する割合です（ミルクと離乳食の合計で計算）。</p>
-        </section>
-
-        <!-- 1日に何度も入力するため、離乳食の入力フォームより上に置く -->
-        <section class="panel milk-panel" aria-labelledby="milk-title">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">授乳</p>
-              <h2 id="milk-title">ミルク</h2>
-            </div>
-            <div class="score-pill">
-              <span id="milk-total">0</span>
-              <small>ml</small>
-            </div>
-          </div>
-          <!-- ワンタップが主な入力経路。下の手入力はそれ以外の量を入れるとき用 -->
-          <p class="milk-quick-label">よく使う量（タップですぐ追加）</p>
-          <div class="milk-quick" id="milk-quick" aria-label="よく使う量"></div>
-          <form class="milk-form" id="milk-form">
-            <label class="milk-field">
-              <span>ほかの量 (ml)</span>
-              <input id="milk-input" type="number" min="10" step="10" max="400" placeholder="200" />
-            </label>
-            <button class="primary-button milk-add" type="submit">追加</button>
-          </form>
-          <div class="milk-list" id="milk-list"></div>
-          <p class="milk-note">
-            育児用ミルクの記録です。目安バーは1日の総摂取量が基準のため、この分も栄養合計に含めて計算します。推定栄養は<span id="milk-product-name">粉ミルク</span>の表示値を標準調乳で換算したものです（母乳は量を測れないため未対応）。
-          </p>
-        </section>
-
-        <section class="panel intake-panel" aria-labelledby="entry-title">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">入力</p>
-              <h2 id="entry-title">一食分を記録</h2>
-            </div>
-            <button class="ghost-button" id="reset-button" type="button">リセット</button>
-          </div>
-
-          <form class="entry-form" id="entry-form">
-            <fieldset class="meal-field">
-              <legend>タイミング</legend>
-              <div class="segmented" id="meal-options"></div>
-            </fieldset>
-
-            <div class="copy-previous">
-              <button class="ghost-button" id="copy-previous-button" type="button">前回の記録をコピー</button>
-              <p class="copy-previous-status" id="copy-previous-status" role="status"></p>
-            </div>
-
-            <details class="memo-import" id="memo-details">
-              <summary>メモから入力（他アプリのコピペ）</summary>
-              <div class="memo-import-body">
-                <textarea
-                  id="memo-input"
-                  rows="4"
-                  placeholder="1行に1品ずつ貼り付け&#10;例:&#10;10倍がゆ50g&#10;牛乳15ml&#10;にんじん小さじ1"
-                  aria-label="食事メモの貼り付け"
-                ></textarea>
-                <button class="ghost-button" id="memo-apply" type="button">食材にセット</button>
-                <p class="memo-status" id="memo-status" role="status"></p>
-              </div>
-            </details>
-
-            <div class="batch-rows" id="batch-rows" aria-label="一食分の食材"></div>
-
-            <button class="add-row-button" id="add-batch-row" type="button">＋食材を追加</button>
-            <button class="primary-button" type="submit">一食分を追加</button>
-          </form>
-
-          <div class="quick-picks" id="quick-picks" aria-label="よく使う食材"></div>
-
-          <div class="meal-templates">
-            <p class="meal-templates-label">献立セット</p>
-            <div class="meal-templates-list" id="meal-templates-list" aria-label="登録済みの献立セット"></div>
-            <button class="ghost-button" id="save-template-button" type="button">
-              ＋今の内容を献立セットとして保存
-            </button>
-            <p class="meal-templates-status" id="meal-templates-status" role="status"></p>
-          </div>
-        </section>
-
-        <section class="panel totals-panel" aria-labelledby="totals-title">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">今日</p>
-              <h2 id="totals-title">栄養合計</h2>
-            </div>
-            <div class="score-pill">
-              <span id="entry-count">0</span>
-              <small>品</small>
-            </div>
-          </div>
-
-          <div class="totals-list" id="totals-list"></div>
-
-          <div class="daily-note">
-            <strong id="main-balance">まだ記録がありません</strong>
-            <span id="sub-balance">食材を追加すると合計が更新されます。</span>
-          </div>
-        </section>
-
-        <section class="panel suggestions-panel" aria-labelledby="suggestions-title">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">提案</p>
-              <h2 id="suggestions-title">補うとよい栄養素</h2>
-            </div>
-          </div>
-          <div class="suggestions" id="suggestions"></div>
-        </section>
-
-        <section class="panel log-panel" aria-labelledby="log-title">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">履歴</p>
-              <h2 id="log-title">今日の記録</h2>
-            </div>
-          </div>
-          <canvas
-            class="plate-canvas"
-            id="plate-canvas"
-            width="720"
-            height="280"
-            aria-label="今日記録した食材のイメージ"
-          ></canvas>
-          <div class="log-list" id="log-list"></div>
-        </section>
-
-        <section class="panel chart-panel" aria-labelledby="trend-title">
-          <details class="panel-details" id="trend-details">
-            <summary>
-              <span class="eyebrow">7日間</span>
-              <h2 id="trend-title">摂取量の推移</h2>
-            </summary>
-            <div class="panel-details-body">
-              <fieldset class="chart-controls" aria-label="表示する栄養素">
-                <legend>表示</legend>
-                <div class="nutrient-toggles" id="chart-nutrients"></div>
-              </fieldset>
-              <div class="trend-grid" id="trend-grid"></div>
-            </div>
-          </details>
-        </section>
-      </main>
-
-      <footer class="site-footer">
-        <p class="disclaimer">
-          このアプリの目安は家庭内の参考情報で、医療・栄養指導の代替ではありません。気になることがあれば、かかりつけ医や保健師にご相談ください。
-        </p>
-        <p class="footer-links">
-          <span>参考</span>
-          <a
-            href="https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/kenkou/eiyou/syokuji_kijyun.html"
-            target="_blank"
-            rel="noreferrer"
-          >
-            厚生労働省 日本人の食事摂取基準
-          </a>
-        </p>
-      </footer>
-    </div>
-
-    <script src="data/food-master.js" defer></script>
-    <script src="custom-foods.js" defer></script>
-    <script src="data/age-targets.js" defer></script>
-    <script src="logic/nutrition.js" defer></script>
-    <script src="logic/history.js" defer></script>
-    <script src="logic/suggestions.js" defer></script>
-    <script src="logic/units.js" defer></script>
-    <script src="logic/memo.js" defer></script>
-    <script src="store.js" defer></script>
-    <script src="chart.js" defer></script>
-    <script src="sync-config.js" defer></script>
-    <script src="vendor/supabase.js" defer></script>
-    <script src="sync.js" defer></script>
-    <script src="app.js" defer></script>
-    <script src="register-sw.js" defer></script>
+    <main>
+      <h1>離乳食栄養メモは終了しました</h1>
+      <p>これまで使っていただき、ありがとうございました。</p>
+      <p>このアプリは役目を終えたため、提供を終了しました。ホーム画面のアイコンは削除して大丈夫です。</p>
+      <p class="note">
+        この端末に保存された記録は自動では消えません。消したい場合は、ブラウザの設定からこのサイトのデータを削除してください。
+      </p>
+    </main>
+    <script src="register-sw.js"></script>
   </body>
 </html>

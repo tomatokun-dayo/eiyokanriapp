@@ -1,9 +1,15 @@
-// Service Worker 登録。CSP（script-src 'self'）と両立させるため、
-// 以前は各HTML末尾にあったインラインスクリプトを外部ファイルへ切り出したもの。
+// 【アプリ終了用】Service Worker を登録せず、残っている登録とキャッシュを片付ける。
+// sw.js 側の自己解除が何らかの理由で動かなかった端末向けの保険。
+// 端末内の記録データ（localStorage）には触れない。
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(() => {
-      // オフライン化に失敗しても通常のWebページとして動作する
-    });
-  });
+  navigator.serviceWorker
+    .getRegistrations()
+    .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+    .catch(() => {});
+}
+if ("caches" in window) {
+  caches
+    .keys()
+    .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+    .catch(() => {});
 }
